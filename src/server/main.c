@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Failed to create fifo\n");
         return 1;
     }
-    pthread_create(&host, NULL, register_clients, (void*)fd_fifo)
+    pthread_create(&host, NULL, register_clients, (void*)fd_fifo);
     
     while (n_file < number_of_files) {
         int count = 0;
