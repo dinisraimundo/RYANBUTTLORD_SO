@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <fcntl.h> 
 #include <sys/wait.h>
+#include <errno.h>
 
 #include "../common/constants.h"
 #include "constants.h"
@@ -21,6 +22,7 @@
 // Global variables
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 int concurrent_backups = 0;
+int client_counter = 0;
 
 // Struct for the files
 typedef struct file_info{
@@ -38,13 +40,19 @@ typedef struct main_info {
 } Main_info;
 
 // Struct for the clients
-typedef struct cliente_info{
-    char name[MAX_STRING_SIZE];
-    char requests_FIFO[MAX_PIPE_PATH_LENGTH];
-    char answers_FIFO[MAX_PIPE_PATH_LENGTH];
-    char notifications_FIFO[MAX_PIPE_PATH_LENGTH];
+typedef struct {
+    int id;
+    int request_fd;
+    int response_fd;
+    int notification_fd;
+    int active; // 1 if the session is active, 0 otherwise
 } Client;
 
+// Struct for host thread
+typedef struct {
+    int register_fd;         // FIFO file descriptor
+    Client *clients;     // Array of clients
+} Thread_args;
 
 // Prototypes
 Info *get_job_files(DIR *directory, const char *dir_path, size_t *num_files);
@@ -63,21 +71,33 @@ int main(int argc, char *argv[]) {
     size_t number_of_files = 0, n_file = 0;
     DIR *directory = opendir(argv[1]);
     Info *job_files = get_job_files(directory, argv[1], &number_of_files);
+    Client clients[MAX_SESSION_COUNT];
     pthread_t list[atoi(argv[3])];
-    int n_thread = 0, fd_fifo;
+    int n_thread = 0;
     pthread_t host;
+
+    // Create fifo directory
+    const char *fifo_dir = "/tmp";
+    DIR *fifo_dir_fd = opendir(fifo_dir);
 
     // Init kvs
     if (kvs_init()) {
         fprintf(stderr, "Failed to initialize KVS\n");
         return 1;
     }
+    printf("%s\n", argv[4]);
     // Init fifo de registo 
-    if (fd_fifo = mkfifo(argv[4], 0666)){
+    if (mkfifo(argv[4], 0666) == -1 && errno == EEXIST){
         fprintf(stderr, "Failed to create fifo\n");
         return 1;
     }
-    pthread_create(&host, NULL, register_clients, (void*)fd_fifo);
+    int register_fifo = open(argv[4], O_RDONLY);
+
+    Thread_args * args = malloc(sizeof(Thread_args));
+    args->register_fd = register_fifo;
+    args->clients = clients;
+    // Host thread to create clients
+    pthread_create(&host, NULL, register_clients, (void*)args);
     
     while (n_file < number_of_files) {
         int count = 0;
@@ -107,6 +127,11 @@ int main(int argc, char *argv[]) {
     
     kvs_terminate();
     closedir(directory);
+    if (unlink("/tmp/myfifo") == -1) {
+        fprintf(stderr, "Failed to remove FIFO");
+    }
+    closedir(fifo_dir_fd);
+    free(args);
     free(job_files);
     return 0;
 }
@@ -339,11 +364,46 @@ void *job_processor(void *arg){
         return NULL;
     }
 
-void register_clients(void *arg){
-    // ver onde colocar os clientes
-    int fd_fifo = *(int*)arg;
+void *register_clients(void *arg){
+    Thread_args * args = (Thread_args*) arg;
+    int register_fd = args->register_fd;
+    Client *clients = args->clients;
+
+    // To read from client
+    int notif_fd, req_fd, resp_fd;
+
+    // Loop to read indefinitely
     while (1){
-        // read é bloqueante então espera
-        ssize_t bytes_read = read(fd_fifo, )
+        // Temos de ver se tamos a ler tudo sempre 
+        char buffer[MAX_PIPE_PATH_LENGTH];
+        ssize_t bytes_read = read(register_fd, buffer, MAX_PIPE_PATH_LENGTH);
+        if (bytes_read == -1){
+            fprintf(stderr, "Failed to read from fifo\n");
+            return NULL;
+        }
+        if (client_counter >= MAX_SESSION_COUNT){
+            fprintf(stderr, "Max number of clients reached\n");
+            return NULL;
+        }
+        // Split the input
+        char *token = strtok(buffer, " ");
+
+        // Get notif pipe
+        req_fd = atoi(token);
+        token = strtok(NULL, " ");
+        
+        // Get resp pipe
+        resp_fd = atoi(token);
+        token = strtok(NULL, " ");
+
+        // Get notif pipe
+        notif_fd = atoi(token);
+
+        clients[client_counter].active = 1;
+        clients[client_counter].request_fd = req_fd;
+        clients[client_counter].response_fd = resp_fd;	
+        clients[client_counter].notification_fd = notif_fd;
+
+        client_counter++;
     }
 }

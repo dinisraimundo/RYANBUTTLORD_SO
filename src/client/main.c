@@ -10,7 +10,6 @@
 #include "src/common/constants.h"
 #include "src/common/io.h"
 
-
 int main(int argc, char* argv[]) {
   if (argc < 3) {
     fprintf(stderr, "Usage: %s <client_unique_id> <register_pipe_path>\n", argv[0]);
@@ -20,6 +19,8 @@ int main(int argc, char* argv[]) {
   char req_pipe_path[256] = "/tmp/req";
   char resp_pipe_path[256] = "/tmp/resp";
   char notif_pipe_path[256] = "/tmp/notif";
+  char register_pipe_path[256];
+  strcpy(register_pipe_path, argv[2]);
 
   char keys[MAX_NUMBER_SUB][MAX_STRING_SIZE] = {0};
   unsigned int delay_ms;
@@ -28,8 +29,6 @@ int main(int argc, char* argv[]) {
   strncat(req_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
   strncat(resp_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
   strncat(notif_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
-
-  // TODO open pipes
 
   while (1) {
     switch (get_next(STDIN_FILENO)) {
