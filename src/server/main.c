@@ -61,7 +61,7 @@ void *register_clients(void *arg);
 
 // Main
 int main(int argc, char *argv[]) {
-
+    printf("1");
     if (argc < 4) {
         fprintf(stderr, "Error: Few arguments\n");
         return 1;
@@ -76,6 +76,7 @@ int main(int argc, char *argv[]) {
     int n_thread = 0;
     pthread_t host;
 
+    printf("1");
     // Create fifo directory
     const char *fifo_dir = "/tmp";
     DIR *fifo_dir_fd = opendir(fifo_dir);
@@ -85,14 +86,15 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Failed to initialize KVS\n");
         return 1;
     }
-    printf("%s\n", argv[4]);
+    printf("1");
     // Init fifo de registo 
     if (mkfifo(argv[4], 0666) == -1 && errno == EEXIST){
         fprintf(stderr, "Failed to create fifo\n");
         return 1;
     }
+    printf("1");
     int register_fifo = open(argv[4], O_RDONLY);
-
+    printf("1");
     Thread_args * args = malloc(sizeof(Thread_args));
     args->register_fd = register_fifo;
     args->clients = clients;
@@ -127,7 +129,7 @@ int main(int argc, char *argv[]) {
     
     kvs_terminate();
     closedir(directory);
-    if (unlink("/tmp/myfifo") == -1) {
+    if (unlink(argv[4]) == -1) {
         fprintf(stderr, "Failed to remove FIFO");
     }
     closedir(fifo_dir_fd);
@@ -365,6 +367,7 @@ void *job_processor(void *arg){
     }
 
 void *register_clients(void *arg){
+    printf("1");
     Thread_args * args = (Thread_args*) arg;
     int register_fd = args->register_fd;
     Client *clients = args->clients;
@@ -374,6 +377,7 @@ void *register_clients(void *arg){
 
     // Loop to read indefinitely
     while (1){
+        printf("cao");
         // Temos de ver se tamos a ler tudo sempre 
         char buffer[MAX_PIPE_PATH_LENGTH];
         ssize_t bytes_read = read(register_fd, buffer, MAX_PIPE_PATH_LENGTH);
