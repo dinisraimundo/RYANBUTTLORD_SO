@@ -56,6 +56,7 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
   }
 
   // Open the notification fifo
+  // PRECISO DE LER DO FIFO PORQUE ISTO TA BLOQUEADO
   if ((notif_fifo = open(notif_pipe_path, O_RDONLY)) == -1){
     fprintf(stderr, "Failed to open fifo\n");
     return 1;
