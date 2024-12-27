@@ -21,6 +21,7 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
     fprintf(stderr, "Failed to create fifo\n");
     return 1;
   }
+
   // Create the response fifo
   if (mkfifo(resp_pipe_path, 0666) == -1){
     fprintf(stderr, "Failed to create fifo\n");
@@ -33,13 +34,15 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
   }
 
   // Open fifos
-
+ fprintf(stderr, "cadela");
+ fprintf(stderr, "server pipe path = %s\n", server_pipe_path);
+ 
   // Open the register fifo
   if ((register_fifo = open(server_pipe_path, O_WRONLY)) == -1){
     fprintf(stderr, "Failed to open fifo\n");
     return 1;
   }
-  
+   fprintf(stderr, "cao");
   // Open the request fifo
   if ((req_fifo = open(req_pipe_path, O_WRONLY)) == -1){
     fprintf(stderr, "Failed to open fifo\n");
@@ -57,11 +60,13 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
     fprintf(stderr, "Failed to open fifo\n");
     return 1;
   }
-
+  fprintf(stderr, "cao");
+  fprintf(stderr, "register fifo = %d\n", register_fifo);
   // Send the client id and each fifos fd to the server
   char buffer[MAX_PIPE_PATH_LENGTH];
   sprintf(buffer, "%s %s %s", req_pipe_path, resp_pipe_path, notif_pipe_path);
-  write(register_fifo, buffer, MAX_PIPE_PATH_LENGTH);
+  ssize_t bytes_writted = write(register_fifo, buffer, MAX_PIPE_PATH_LENGTH);
+  fprintf(stderr, "bytes writted = %ld\n", bytes_writted);
   close(register_fifo);
   return 0;
 }

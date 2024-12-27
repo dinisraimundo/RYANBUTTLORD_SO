@@ -76,9 +76,14 @@ int main(int argc, char *argv[]) {
     int n_thread = 0;
     pthread_t host;
 
-    // Create fifo directory
+    // Open tmp dir
     const char *fifo_dir = "/tmp";
     DIR *fifo_dir_fd = opendir(fifo_dir);
+
+    if (fifo_dir_fd == NULL) {
+        printf("error\n");
+        return 1; // Failure to open the directory
+    }
 
     // Init kvs
     if (kvs_init()) {
@@ -87,11 +92,13 @@ int main(int argc, char *argv[]) {
     }
 
     // Init fifo de registo 
-    if (mkfifo(argv[4], 0666) == -1 && errno != EEXIST) {
-        fprintf(stderr,"mkfifo failed");
+    int c;
+    if ( (c = mkfifo(argv[4], 0666)) == -1 && errno != EEXIST){
+        fprintf(stderr, "Failed to create fifo\n");
         return 1;
     }
-
+    printf("%s\n", argv[4]);
+    printf("%d\n", c);
 
     Thread_args * args = malloc(sizeof(Thread_args));
     args->register_fd = argv[4];
@@ -124,7 +131,13 @@ int main(int argc, char *argv[]) {
             pthread_join(list[n_thread], NULL);
         }
     }
-    
+    for (int i = 0; i < client_counter; i++){
+        printf("client %d\n", clients[i].id);
+        printf("request fd %d\n", clients[i].request_fd);
+        printf("response fd %d\n", clients[i].response_fd);
+        printf("notification fd %d\n", clients[i].notification_fd);
+    }
+    pthread_join(host, NULL);
     kvs_terminate();
     closedir(directory);
     if (unlink(argv[4]) == -1) {
@@ -364,66 +377,53 @@ void *job_processor(void *arg){
         return NULL;
     }
 
-void *register_clients(void *arg) {
-    Thread_args *args = (Thread_args*) arg;
-    char *register_path = args->register_fd; // Ensure this is a path (string)
+void *register_clients(void *arg){
+    // Arguments
+    Thread_args * args = (Thread_args*) arg;
+    char * register_path = args->register_fd;
     Client *clients = args->clients;
-
-    printf("Attempting to create FIFO at: %s\n", register_path);
-
-    // Create FIFO if it does not exist
-    if (mkfifo(register_path, 0666) == -1 && errno != EEXIST) {
-        perror("mkfifo failed");
-        return NULL;
-    }
-
-    // Verify FIFO exists
-    if (access(register_path, F_OK) == -1) {
-        perror("FIFO does not exist after mkfifo");
-        return NULL;
-    }
-
-    // Open the FIFO for reading
+    
+    printf("path = %s\n", register_path);
     int register_fd = open(register_path, O_RDONLY);
-    if (register_fd == -1) {
-        perror("Failed to open FIFO");
-        return NULL;
-    }
+    printf("register fd = %d\n", register_fd);
+    // To read from client
+    int notif_fd, req_fd, resp_fd;
 
     // Loop to read indefinitely
-    while (1) {
+    while (1){
+        printf("cao");
+        // Temos de ver se tamos a ler tudo sempre 
         char buffer[MAX_PIPE_PATH_LENGTH];
         ssize_t bytes_read = read(register_fd, buffer, MAX_PIPE_PATH_LENGTH);
-        if (bytes_read == -1) {
-            perror("Failed to read from FIFO");
+        printf("bytes read = %ld\n", bytes_read);
+        if (bytes_read == -1){
+            fprintf(stderr, "Failed to read from fifo\n");
             return NULL;
         }
-
-        if (bytes_read == 0) {
-            // No data, continue waiting
-            printf("No data, continuing to wait...\n");
-            continue;
+        if (client_counter >= MAX_SESSION_COUNT){
+            fprintf(stderr, "Max number of clients reached\n");
+            return NULL;
         }
-
-        printf("Received data: %s\n", buffer);
-
         // Split the input
         char *token = strtok(buffer, " ");
-        int req_fd = atoi(token);
-        token = strtok(NULL, " ");
-        int resp_fd = atoi(token);
-        token = strtok(NULL, " ");
-        int notif_fd = atoi(token);
 
-        // Store client data
+        // Get notif pipe
+        req_fd = atoi(token);
+        token = strtok(NULL, " ");
+        
+        // Get resp pipe
+        resp_fd = atoi(token);
+        token = strtok(NULL, " ");
+
+        // Get notif pipe
+        notif_fd = atoi(token);
+
         clients[client_counter].active = 1;
         clients[client_counter].request_fd = req_fd;
-        clients[client_counter].response_fd = resp_fd;
+        clients[client_counter].response_fd = resp_fd;	
         clients[client_counter].notification_fd = notif_fd;
 
         client_counter++;
+        return NULL;
     }
-
-    close(register_fd);
-    return NULL;
 }

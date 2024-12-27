@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "Usage: %s <client_unique_id> <register_pipe_path>\n", argv[0]);
     return 1;
   }
-
+  
   char req_pipe_path[256] = "/tmp/req";
   char resp_pipe_path[256] = "/tmp/resp";
   char notif_pipe_path[256] = "/tmp/notif";
@@ -29,6 +29,8 @@ int main(int argc, char* argv[]) {
   strncat(req_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
   strncat(resp_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
   strncat(notif_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
+
+  kvs_connect(req_pipe_path, resp_pipe_path, register_pipe_path, notif_pipe_path);
 
   while (1) {
     switch (get_next(STDIN_FILENO)) {
