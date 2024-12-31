@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <errno.h>
 #include <fcntl.h> 
 #include <sys/wait.h>
 #include <stdio.h>
@@ -17,18 +18,18 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
   int register_fifo, notif_fifo, req_fifo, resp_fifo;
 
   // Create the request fifo
-  if (mkfifo(req_pipe_path, 0666) == -1){
+  if (mkfifo(req_pipe_path, 0777) == -1){
     fprintf(stderr, "Failed to create fifo\n");
     return 1;
   }
 
   // Create the response fifo
-  if (mkfifo(resp_pipe_path, 0666) == -1){
+  if (mkfifo(resp_pipe_path, 0777) == -1){
     fprintf(stderr, "Failed to create fifo\n");
     return 1;
   }
   // Create the notification fifo
-  if (mkfifo(notif_pipe_path, 0666) == -1){
+  if (mkfifo(notif_pipe_path, 0777) == -1){
     fprintf(stderr, "Failed to create fifo\n");
     return 1;
   }
@@ -50,7 +51,8 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
   }
   
   // Open the response fifo
-  if ((resp_fifo = open(resp_pipe_path, O_WRONLY)) == -1){
+  // O response fifo é de leitura porque é o server que escreve nele
+  if ((resp_fifo = open(resp_pipe_path, O_RDONLY)) == -1){
     fprintf(stderr, "Failed to open fifo\n");
     return 1;
   }
@@ -72,8 +74,30 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
   return 0;
 }
  
-int kvs_disconnect(void) {
+int kvs_disconnect(char const* req_pipe_path, char const* resp_pipe_path, char const* notif_pipe_path) {
+  // Se não tivermos fechado os fds primeiro temos de os trazer para aqui e fachá-los para posteriormente dar unlink
   // close pipes and unlink pipe files
+
+  // Close the request fifo
+  if (close(req_pipe_path) == -1){
+    fprintf(stderr, "Failed to close fifo\n");
+    return 1;
+  }
+
+  // Close the response fifo
+  if (close(resp_pipe_path) == -1){
+    fprintf(stderr, "Failed to close fifo\n");
+    return 1;
+  }
+
+  // Close the notification fifo
+  if (close(notif_pipe_path) == -1){
+    fprintf(stderr, "Failed to close fifo\n");
+    return 1;
+  }
+
+
+
   return 0;
 }
 
