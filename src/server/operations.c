@@ -7,6 +7,7 @@
 
 #include "kvs.h"
 #include "constants.h"
+#include "src/common/io.h"
 
 static struct HashTable* kvs_table = NULL;
 
@@ -36,15 +37,6 @@ int kvs_terminate() {
 
   free_table(kvs_table);
   return 0;
-}
-
-int find_in_vector(int * index_seen, int hashed_key, int count){
-    for (int i = 0; i < count; i++){
-      if (index_seen[i] == hashed_key){
-        return 1;
-      }
-    }
-    return 0;
 }
 
 int compare_keynodes(const void *a, const void *b) {

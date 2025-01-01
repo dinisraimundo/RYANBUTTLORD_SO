@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
 
     // Init fifo de registo 
     int c;
-    if ( (c = mkfifo(argv[4], 0666)) == -1 && errno != EEXIST){
+    if ( (c = mkfifo(argv[4], 0777)) == -1 && errno != EEXIST){
         fprintf(stderr, "Failed to create fifo\n");
         return 1;
     }

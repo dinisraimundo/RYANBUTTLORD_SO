@@ -24,4 +24,6 @@ int write_all(int fd, const void *buffer, size_t size);
 
 void delay(unsigned int time_ms);
 
+int find_in_vector(int * index_seen, int hashed_key, int count);
+
 #endif  // COMMON_IO_H

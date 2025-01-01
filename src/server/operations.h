@@ -47,6 +47,4 @@ void kvs_wait_backup();
 /// @param delay_us Delay in milliseconds.
 void kvs_wait(unsigned int delay_ms);
 
-int find_in_vector(int * index_seen, int hashed_key, int count);
-
 #endif  // KVS_OPERATIONS_H

@@ -9,6 +9,7 @@
 typedef struct KeyNode {
     char *key;
     char *value;
+    char *ids_clients;
     struct KeyNode *next;
 } KeyNode;
 
