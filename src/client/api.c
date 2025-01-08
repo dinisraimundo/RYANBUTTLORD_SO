@@ -11,7 +11,6 @@
 #include "api.h"
 #include "src/common/constants.h"
 #include "src/common/protocol.h"
-#include "src/server/kvs.h"   //Não tenho a certeza que possamos incluir isto aqui
 
 int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char const* server_pipe_path,
                 char const* notif_pipe_path) { // Retirei dos parametros o int* notif_pipe porque não uso
@@ -105,6 +104,14 @@ int kvs_disconnect(char const* req_pipe_path, char const* resp_pipe_path, char c
 int kvs_subscribe(const char* key, int fd_req_pipe) {
   // send subscribe message to request pipe and wait for response in response pipe
   int index = hash(key);
+  char buffer[42] = "3";
+  strcat(buffer, key);
+
+  ssize_t bytes_written = write(fd_req_pipe, buffer, sizeof(buffer));
+  if (bytes_written == -1) {
+      perror("Failed to write to server FIFO");
+      return 1;
+  }
 
   if (*key < 1){
     return 1;
