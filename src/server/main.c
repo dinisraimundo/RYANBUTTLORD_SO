@@ -165,21 +165,28 @@ static int run_job(int in_fd, int out_fd, char* filename) {
   }
 }
 
-static int run_client(int fd_req_pipe){
+static int run_client(int fd_req_pipe, int fd_resp_pipe){
   int op;
-  ssize_t bytes_read = read(fd_req_pipe, op, sizeof(char));
-  if (bytes_read == -1) {
+
+  if (read(fd_req_pipe, op, sizeof(char)) == -1) {
       perror("Failed to write to server FIFO");
-      return 1;
+      return -1;
   }
   switch(op){
     case OP_CODE_CONNECT:
-    
     case OP_CODE_DISCONNECT:
     case OP_CODE_SUBSCRIBE:
     case OP_CODE_UNSUBSCRIBE:
   }
 } 
+
+int subscribe(int fd_resp_pipe){
+  
+  if (write(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
+    perror("Failed to write to server FIFO");
+    return -1;
+  }
+}
 
 //frees arguments
 static void* get_file(void* arguments) {

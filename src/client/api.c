@@ -104,14 +104,17 @@ int kvs_subscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
   // send subscribe message to request pipe and wait for response in response pipe
   
   int index = hash(key);
-  char buffer[42] = "3";
+  char buffer[KEY_OPCODE];
+  memset(buffer, '\0', KEY_OPCODE);
+  strcpy(buffer, "3");
   strcat(buffer, key);
 
-  ssize_t bytes_written = write(fd_req_pipe, buffer, sizeof(buffer));
-  if (bytes_written == -1) {
-      perror("Failed to write to server FIFO");
-      return 1;
+  if (write(fd_req_pipe, buffer, sizeof(buffer)) == -1) {
+    perror("Failed to write to server FIFO");
+    return -1;
   }
+
+
 
   if (*key < 1){
     return 1;
