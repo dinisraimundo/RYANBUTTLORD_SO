@@ -13,6 +13,7 @@
 #include "operations.h"
 #include "io.h"
 #include "pthread.h"
+#include "src/common/protocol.h"
 
 struct SharedData {
   DIR* dir;
@@ -163,6 +164,22 @@ static int run_job(int in_fd, int out_fd, char* filename) {
     }
   }
 }
+
+static int run_client(int fd_req_pipe){
+  int op;
+  ssize_t bytes_read = read(fd_req_pipe, op, sizeof(char));
+  if (bytes_read == -1) {
+      perror("Failed to write to server FIFO");
+      return 1;
+  }
+  switch(op){
+    case OP_CODE_CONNECT:
+    
+    case OP_CODE_DISCONNECT:
+    case OP_CODE_SUBSCRIBE:
+    case OP_CODE_UNSUBSCRIBE:
+  }
+} 
 
 //frees arguments
 static void* get_file(void* arguments) {
