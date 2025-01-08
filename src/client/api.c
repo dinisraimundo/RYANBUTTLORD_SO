@@ -44,24 +44,24 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
   }
    fprintf(stderr, "cao");
   // Open the request fifo
-  if ((req_fifo = open(req_pipe_path, O_WRONLY)) == -1){
+  if ((req_fifo = open(req_pipe_path, O_WRONLY|O_NONBLOCK)) == -1){
     fprintf(stderr, "Failed to open fifo\n");
     return 1;
   }
-  
+  printf("entrada");  
   // Open the response fifo
-  if ((resp_fifo = open(resp_pipe_path, O_WRONLY)) == -1){
+  if ((resp_fifo = open(resp_pipe_path, O_WRONLY|O_NONBLOCK)) == -1){
     fprintf(stderr, "Failed to open fifo\n");
     return 1;
   }
 
   // Open the notification fifo
   // PRECISO DE LER DO FIFO PORQUE ISTO TA BLOQUEADO
-  if ((notif_fifo = open(notif_pipe_path, O_RDONLY)) == -1){
+  if ((notif_fifo = open(notif_pipe_path, O_RDONLY|O_NONBLOCK)) == -1){
     fprintf(stderr, "Failed to open fifo\n");
     return 1;
   }
-  fprintf(stderr, "cao");
+  fprintf(stderr, "cao2");
   fprintf(stderr, "register fifo = %d\n", register_fifo);
   // Send the client id and each fifos fd to the server
   char buffer[MAX_PIPE_PATH_LENGTH];
