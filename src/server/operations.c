@@ -1,15 +1,17 @@
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 #include <time.h>
-#include <fcntl.h>
 #include <unistd.h>
 
-#include "kvs.h"
 #include "constants.h"
+#include "io.h"
+#include "kvs.h"
+#include "operations.h"
 
-static struct HashTable* kvs_table = NULL;
-
+static struct HashTable *kvs_table = NULL;
 
 /// Calculates a timespec from a delay in milliseconds.
 /// @param delay_ms Delay in milliseconds.
@@ -35,270 +37,140 @@ int kvs_terminate() {
   }
 
   free_table(kvs_table);
+  kvs_table = NULL;
   return 0;
 }
 
-int find_in_vector(int * index_seen, int hashed_key, int count){
-    for (int i = 0; i < count; i++){
-      if (index_seen[i] == hashed_key){
-        return 1;
-      }
-    }
-    return 0;
-}
-
-int compare_keynodes(const void *a, const void *b) {
-    KeyNode node_a = *(KeyNode *)a;
-    KeyNode node_b = *(KeyNode *)b;
-    return strcmp(node_a.key, node_b.key);
-}
-
-int kvs_write(size_t num_pairs, char keys[][MAX_STRING_SIZE], char values[][MAX_STRING_SIZE]) {
-  if (kvs_table == NULL) {
-    fprintf(stderr, "KVS state must be initialized\n");
-    return 1;
-  }
-  int index_seen[num_pairs], counter = 0; 
-  //If we don't do this the qsort sorts the keys without the values following them
-  KeyNode vector[num_pairs];
-  
-  for(size_t i = 0; i < num_pairs; i++){
-    vector[i].key = malloc(strlen(keys[i])+1);
-    strcpy(vector[i].key, keys[i]);
-
-    vector[i].value = malloc(strlen(values[i])+1);
-    strcpy(vector[i].value,values[i]);
-  }
-
-  qsort(vector, num_pairs, sizeof(KeyNode), compare_keynodes); 
-  
-  for (size_t i = 0; i < num_pairs; i++) {
-    int index = hash(vector[i].key);
-    if (!find_in_vector(index_seen, hash(vector[i].key), counter)){
-      index_seen[counter++] = index;
-      //Only locks the index entry of the kvs table
-      pthread_rwlock_wrlock(&kvs_table->locks[index]);
-    }
-
-    if (write_pair(kvs_table, vector[i].key, vector[i].value) != 0) {
-      fprintf(stderr, "Failed to write keypair (%s,%s)\n", vector[i].key, vector[i].value);
-    }
-  }
-
-  for (int i = 0; i < counter; i++){
-    //Unlocks the section of the kvs table that we previously locked
-    pthread_rwlock_unlock(&kvs_table->locks[index_seen[i]]);
-  }
-
-  for(size_t i = 0; i < num_pairs; i++){
-    free(vector[i].key);
-    free(vector[i].value);
-  }
-
-  return 0;
-}
-
-/*
-  Compares strings, used in qsort
-*/
-int compare_strings(const void *a, const void *b) {
-    const char *str1 = (const char *)a;
-    const char *str2 = (const char *)b;
-    return strcmp(str1, str2);
-}
-
-int kvs_read(size_t num_pairs, char keys[][MAX_STRING_SIZE], int fd_out) {
+int kvs_write(size_t num_pairs, char keys[][MAX_STRING_SIZE],
+              char values[][MAX_STRING_SIZE]) {
   if (kvs_table == NULL) {
     fprintf(stderr, "KVS state must be initialized\n");
     return 1;
   }
 
-  qsort(keys, num_pairs, MAX_STRING_SIZE, compare_strings);
-  ssize_t bytes_written = 0;
-  int index_seen[num_pairs], counter = 0; 
-  char *message = "[";
-
-  bytes_written = write(fd_out, message, (size_t)strlen(message));
-  if (bytes_written == -1){return 1;}
+  pthread_rwlock_wrlock(&kvs_table->tablelock);
 
   for (size_t i = 0; i < num_pairs; i++) {
-    int index = hash(keys[i]);
-    if (!find_in_vector(index_seen, hash(keys[i]), counter)){
-      index_seen[counter++] = index;
-      //Only locks the index entry of the kvs table
-      pthread_rwlock_rdlock(&kvs_table->locks[index]);
-    } 
+    if (write_pair(kvs_table, keys[i], values[i]) != 0) {
+      fprintf(stderr, "Failed to write key pair (%s,%s)\n", keys[i], values[i]);
+    }
+  }
 
-    char* result = read_pair(kvs_table, keys[i]);
-    char to_file[MAX_WRITE_SIZE];
+  pthread_rwlock_unlock(&kvs_table->tablelock);
+  return 0;
+}
 
+int kvs_read(size_t num_pairs, char keys[][MAX_STRING_SIZE], int fd) {
+  if (kvs_table == NULL) {
+    fprintf(stderr, "KVS state must be initialized\n");
+    return 1;
+  }
+  
+  pthread_rwlock_rdlock(&kvs_table->tablelock);
+
+  write_str(fd, "[");
+  for (size_t i = 0; i < num_pairs; i++) {
+    char *result = read_pair(kvs_table, keys[i]);
+    char aux[MAX_STRING_SIZE];
     if (result == NULL) {
-      snprintf(to_file, sizeof(to_file), "(%s,KVSERROR)", keys[i]);
-      message = malloc(sizeof(char) * (strlen(to_file) + 1));
-      strcpy(message, to_file);
-      bytes_written = write(fd_out, message, (size_t)strlen(message));
-      
-      if (bytes_written == -1){
-        for (int j = 0; j < counter; j++){
-          pthread_rwlock_unlock(&kvs_table->locks[index_seen[j]]);
-        }
-        free(message);
-        return 1;
-      }
+      snprintf(aux, MAX_STRING_SIZE, "(%s,KVSERROR)", keys[i]);
     } else {
-      snprintf(to_file, sizeof(to_file), "(%s,%s)", keys[i], result);
-      message = malloc(sizeof(char) * (strlen(to_file) + 1));
-      strcpy(message, to_file);
-      bytes_written = write(fd_out, message, (size_t)strlen(message));
-      if (bytes_written == -1){
-        for (int j = 0; j < counter; j++){
-          pthread_rwlock_unlock(&kvs_table->locks[index_seen[j]]);
-        }
-        free(message);
-        return 1;
-      }
-    }    
+      snprintf(aux, MAX_STRING_SIZE, "(%s,%s)", keys[i], result);
+    }
+    write_str(fd, aux);
     free(result);
-    free(message);
   }
-  for (int j = 0; j < counter; j++){
-    //Unlocks the section of the kvs table that we previously locked
-    pthread_rwlock_unlock(&kvs_table->locks[index_seen[j]]);
-  }
-  message = "]\n";
-  bytes_written = write(fd_out, message, (size_t)strlen(message));
-  if (bytes_written == -1){return 1;}
+  write_str(fd, "]\n");
+  
+  pthread_rwlock_unlock(&kvs_table->tablelock);
   return 0;
 }
 
-int kvs_delete(size_t num_pairs, char keys[][MAX_STRING_SIZE], int fd_out) {
+int kvs_delete(size_t num_pairs, char keys[][MAX_STRING_SIZE], int fd) {
   if (kvs_table == NULL) {
     fprintf(stderr, "KVS state must be initialized\n");
     return 1;
   }
-
-  qsort(keys, num_pairs, MAX_STRING_SIZE, compare_strings);
   
-  int index_seen[num_pairs], counter = 0, aux = 0;
-  char to_file[MAX_WRITE_SIZE];
-  char *message;
+  pthread_rwlock_wrlock(&kvs_table->tablelock);
 
+  int aux = 0;
   for (size_t i = 0; i < num_pairs; i++) {
-    int index = hash(keys[i]);
-
-    if (!find_in_vector(index_seen, hash(keys[i]), counter)){
-      index_seen[counter++] = index;
-      pthread_rwlock_wrlock(&kvs_table->locks[index]);
-    } 
-
-    if (delete_pair(kvs_table, keys[i]) != 0) {
       if (!aux) {
-        message = "[";
-        ssize_t bytes_written = write(fd_out, message, (size_t)strlen(message));
-
-        if (bytes_written == -1) {
-          for (int j = 0; j < counter; j++){
-            pthread_rwlock_unlock(&kvs_table->locks[index_seen[j]]);
-          }
-          return 1;
-        }
+        write_str(fd, "[");
         aux = 1;
       }
-      snprintf(to_file, sizeof(to_file), "(%s,KVSMISSING)", keys[i]);
-      message = malloc(sizeof(char) * (strlen(to_file) + 1));
-      strcpy(message, to_file);
-      ssize_t bytes_written = write(fd_out, message, (size_t)strlen(message));
-
-      if (bytes_written == -1) {
-        free(message);
-        for (int j = 0; j < counter; j++){
-          pthread_rwlock_unlock(&kvs_table->locks[index_seen[j]]);
-        }
-        return 1;
-      }
-      free(message);
-    }
+      char str[MAX_STRING_SIZE];
+      snprintf(str, MAX_STRING_SIZE, "(%s,KVSMISSING)", keys[i]);
+      write_str(fd, str);
   }
-
-  for (int j = 0; j < counter; j++){
-    pthread_rwlock_unlock(&kvs_table->locks[index_seen[j]]);
-  }
-  
   if (aux) {
-    message = "]\n";
-    ssize_t bytes_written = write(fd_out, message, (size_t)strlen(message));
-    if (bytes_written == -1) {return 1;}
+    write_str(fd, "]\n");
   }
+
+  pthread_rwlock_unlock(&kvs_table->tablelock);
   return 0;
 }
 
-void kvs_show(int fd_out) {
-
-  for (int i = 0; i < TABLE_SIZE; i++){
-    //locks the whole kvs table to writers
-    pthread_rwlock_rdlock(&kvs_table->locks[i]);
+void kvs_show(int fd) {
+  if (kvs_table == NULL) {
+    fprintf(stderr, "KVS state must be initialized\n");
+    return;
   }
-
+  
+  pthread_rwlock_rdlock(&kvs_table->tablelock);
+  char aux[MAX_STRING_SIZE];
+  
   for (int i = 0; i < TABLE_SIZE; i++) {
-    KeyNode *keyNode = kvs_table->table[i];
+    KeyNode *keyNode = kvs_table->table[i]; // Get the next list head
     while (keyNode != NULL) {
-      char to_file[1024];
-      char * message;
-      snprintf(to_file, sizeof(to_file), "(%s, %s)\n", keyNode->key, keyNode->value);
-      message = malloc(sizeof(char) * (strlen(to_file) + 1));
-      strcpy(message, to_file);
-
-      ssize_t bytes_written = write(fd_out, message, (size_t)strlen(message));
-
-      if (bytes_written == -1) {
-        fprintf(stderr,"Could not write everything to .out\n");
-      }
-      keyNode = keyNode->next; // Move to the next node
-      free(message);
+      snprintf(aux, MAX_STRING_SIZE, "(%s, %s)\n", keyNode->key, keyNode->value);
+      write_str(fd, aux);
+      keyNode = keyNode->next; // Move to the next node of the list
     }
   }
-  for (int i = 0; i < TABLE_SIZE; i++){
-    //Unlocks the whole table
-    pthread_rwlock_unlock(&kvs_table->locks[i]);
-  }
+
+  pthread_rwlock_unlock(&kvs_table->tablelock);
 }
 
-int kvs_backup(int n_backup, char* dir_path, char file_name[MAX_JOB_FILE_NAME_SIZE]) {
-    char path[MAX_JOB_FILE_NAME_SIZE], *name, *info;
-    ssize_t bytes_written = 0;
+int kvs_backup(size_t num_backup,char* job_filename , char* directory) {
+  pid_t pid;
+  char bck_name[50];
+  snprintf(bck_name, sizeof(bck_name), "%s/%s-%ld.bck", directory, strtok(job_filename, "."),
+           num_backup);
 
-    snprintf(path, MAX_JOB_FILE_NAME_SIZE, "%s/%s-%d.bck", dir_path, file_name, n_backup);
-    name = malloc(sizeof(char) * (strlen(path) + 1));
-    strcpy(name, path); 
-
-    int fd_created = open(name, O_CREAT | O_WRONLY | O_TRUNC, 0644);
-    if(fd_created == -1){
-      free(name);
-      return -1;
-    }
-
+  pthread_rwlock_rdlock(&kvs_table->tablelock);
+  pid = fork();
+  pthread_rwlock_unlock(&kvs_table->tablelock);
+  if (pid == 0) {
+    // functions used here have to be async signal safe, since this
+    // fork happens in a multi thread context (see man fork)
+    int fd = open(bck_name, O_WRONLY | O_CREAT | O_TRUNC, 0666);
     for (int i = 0; i < TABLE_SIZE; i++) {
-        KeyNode *keyNode = kvs_table->table[i];
-        while (keyNode != NULL) {
-            char buffer[MAX_WRITE_SIZE + 1];
-            snprintf(buffer, sizeof(buffer), "(%s, %s)\n", keyNode->key, keyNode->value);
-            info = malloc(sizeof(char) * (strlen(buffer) + 1));
-            strcpy(info, buffer);
-            bytes_written = write(fd_created, buffer, (size_t)strlen(info));
-            if(bytes_written == -1){
-              close(fd_created);
-              free(name);
-              free(info);
-              return -1;
-            } 
-            keyNode = keyNode->next;
-            free(info);
-        }
+      KeyNode *keyNode = kvs_table->table[i]; // Get the next list head
+      while (keyNode != NULL) {
+        char aux[MAX_STRING_SIZE];
+        aux[0] = '(';
+        size_t num_bytes_copied = 1; // the "("
+        // the - 1 are all to leave space for the '/0'
+        num_bytes_copied += strn_memcpy(aux + num_bytes_copied,
+                                        keyNode->key, MAX_STRING_SIZE - num_bytes_copied - 1);
+        num_bytes_copied += strn_memcpy(aux + num_bytes_copied,
+                                        ", ", MAX_STRING_SIZE - num_bytes_copied - 1);
+        num_bytes_copied += strn_memcpy(aux + num_bytes_copied,
+                                        keyNode->value, MAX_STRING_SIZE - num_bytes_copied - 1);
+        num_bytes_copied += strn_memcpy(aux + num_bytes_copied,
+                                        ")\n", MAX_STRING_SIZE - num_bytes_copied - 1);
+        aux[num_bytes_copied] = '\0';
+        write_str(fd, aux);
+        keyNode = keyNode->next; // Move to the next node of the list
+      }
     }
-
-    close(fd_created);
-    free(name);
-    return 0;
+    exit(1);
+  } else if (pid < 0) {
+    return -1;
+  }
+  return 0;
 }
 
 void kvs_wait(unsigned int delay_ms) {

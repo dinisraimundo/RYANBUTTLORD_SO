@@ -1,8 +1,8 @@
 #include "kvs.h"
 #include "string.h"
+#include <ctype.h>
 
 #include <stdlib.h>
-#include <ctype.h>
 
 // Hash function based on key initial.
 // @param key Lowercase alphabetical string.
@@ -11,69 +11,75 @@
 int hash(const char *key) {
     int firstLetter = tolower(key[0]);
     if (firstLetter >= 'a' && firstLetter <= 'z') {
-        return firstLetter - 'a'; // retorna o index de 0 a 26, sendo a = 0 e z = 26
+        return firstLetter - 'a';
     } else if (firstLetter >= '0' && firstLetter <= '9') {
-        return firstLetter - '0'; // retorna o mesmo que em cima
+        return firstLetter - '0';
     }
     return -1; // Invalid index for non-alphabetic or number strings
 }
 
-
 struct HashTable* create_hash_table() {
-  HashTable *ht = malloc(sizeof(HashTable));
-  if (!ht) return NULL;
-  for (int i = 0; i < TABLE_SIZE; i++) {
-      ht->table[i] = NULL;
-      pthread_rwlock_init(&ht->locks[i], NULL);
-  }
-  return ht;
+	HashTable *ht = malloc(sizeof(HashTable));
+	if (!ht) return NULL;
+	for (int i = 0; i < TABLE_SIZE; i++) {
+		ht->table[i] = NULL;
+	}
+	pthread_rwlock_init(&ht->tablelock, NULL);
+	return ht;
 }
- 
-int write_pair(HashTable *ht, const char *key, const char *value) {
-    int index = hash(key); 
 
-    KeyNode *keyNode = ht->table[index];
+int write_pair(HashTable *ht, const char *key, const char *value) {
+    int index = hash(key);
+
+    // Search for the key node
+	KeyNode *keyNode = ht->table[index];
+    KeyNode *previousNode;
 
     while (keyNode != NULL) {
         if (strcmp(keyNode->key, key) == 0) {
+            // overwrite value
             free(keyNode->value);
             keyNode->value = strdup(value);
             return 0;
         }
-        keyNode = keyNode->next; 
+        previousNode = keyNode;
+        keyNode = previousNode->next; // Move to the next node
     }
-    
-
     // Key not found, create a new key node
     keyNode = malloc(sizeof(KeyNode));
     keyNode->key = strdup(key); // Allocate memory for the key
     keyNode->value = strdup(value); // Allocate memory for the value
     keyNode->next = ht->table[index]; // Link to existing nodes
-    ht->table[index] = keyNode;
+    ht->table[index] = keyNode; // Place new key node at the start of the list
     return 0;
 }
 
 char* read_pair(HashTable *ht, const char *key) {
     int index = hash(key);
-    KeyNode *keyNode = ht->table[index];
-    char* value;
+
+	KeyNode *keyNode = ht->table[index];
+    KeyNode *previousNode;
+    char *value;
 
     while (keyNode != NULL) {
         if (strcmp(keyNode->key, key) == 0) {
             value = strdup(keyNode->value);
-            return value; // Return copy of the value if found
+            return value; // Return the value if found
         }
-        keyNode = keyNode->next; // Move to the next node
+        previousNode = keyNode;
+        keyNode = previousNode->next; // Move to the next node
     }
+
     return NULL; // Key not found
 }
 
 int delete_pair(HashTable *ht, const char *key) {
     int index = hash(key);
+
+    // Search for the key node
     KeyNode *keyNode = ht->table[index];
     KeyNode *prevNode = NULL;
 
-    // Search for the key node
     while (keyNode != NULL) {
         if (strcmp(keyNode->key, key) == 0) {
             // Key found; delete this node
@@ -93,13 +99,12 @@ int delete_pair(HashTable *ht, const char *key) {
         prevNode = keyNode; // Move prevNode to current node
         keyNode = keyNode->next; // Move to the next node
     }
-    
+
     return 1;
 }
 
 void free_table(HashTable *ht) {
     for (int i = 0; i < TABLE_SIZE; i++) {
-        pthread_rwlock_destroy(&ht->locks[i]);
         KeyNode *keyNode = ht->table[i];
         while (keyNode != NULL) {
             KeyNode *temp = keyNode;
@@ -109,5 +114,6 @@ void free_table(HashTable *ht) {
             free(temp);
         }
     }
+    pthread_rwlock_destroy(&ht->tablelock);
     free(ht);
 }

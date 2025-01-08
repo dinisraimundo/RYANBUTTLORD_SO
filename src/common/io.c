@@ -8,7 +8,15 @@
 #include <unistd.h>
 #include "src/common/constants.h"
  
- 
+int find_in_vector(int * index_seen, int hashed_key, int count){
+    for (int i = 0; i < count; i++){
+      if (index_seen[i] == hashed_key){
+        return 1;
+      }
+    }
+    return 0;
+}
+
 int read_all(int fd, void *buffer, size_t size, int *intr) {
   if (intr != NULL && *intr) {
     return -1;
