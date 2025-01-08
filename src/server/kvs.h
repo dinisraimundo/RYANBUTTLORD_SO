@@ -8,6 +8,7 @@
 typedef struct KeyNode {
     char *key;
     char *value;
+    Subscribers *subs;
     struct KeyNode *next;
 } KeyNode;
 
@@ -15,6 +16,11 @@ typedef struct HashTable {
     KeyNode *table[TABLE_SIZE];
     pthread_rwlock_t tablelock;
 } HashTable;
+
+typedef struct Subscribers{
+    char *subs;
+    struct Subscribers *next;
+} Subscribers;
 
 /// Creates a new KVS hash table.
 /// @return Newly created hash table, NULL on failure

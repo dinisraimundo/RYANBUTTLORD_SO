@@ -117,3 +117,38 @@ void free_table(HashTable *ht) {
     pthread_rwlock_destroy(&ht->tablelock);
     free(ht);
 }
+
+int sub_key(HashTable *ht, const char * key, const char * client_id){
+    int index = hash(key);
+
+	KeyNode *keyNode = ht->table[index];
+    KeyNode *previousNode;
+    Subscribers *subNode;
+    Subscribers *previousSub;
+
+    while (keyNode != NULL) {
+        if (strcmp(keyNode->key, key) == 0) {
+            subNode = keyNode->subs;
+
+            while (subNode != NULL) {
+                if (strcmp(subNode->subs, client_id) == 0) {
+                    break;
+                }
+                previousSub = keyNode;
+                subNode = previousSub->next; // Move to the next subNode
+                if(subNode == NULL){
+                    // Key not found, create a new key node
+                    subNode = malloc(sizeof(subNode));
+                    subNode->subs = strdup(key);
+                    subNode->next = keyNode->subs;
+                    keyNode->subs = subNode;
+                }
+            }
+            return 1;
+        }
+        previousNode = keyNode;
+        keyNode = previousNode->next; // Move to the next node
+    }
+
+    return 0;
+}

@@ -178,14 +178,6 @@ static int run_client(int fd_req_pipe, int fd_resp_pipe){
     case OP_CODE_SUBSCRIBE:
     case OP_CODE_UNSUBSCRIBE:
   }
-} 
-
-int subscribe(int fd_resp_pipe){
-  
-  if (write(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
-    perror("Failed to write to server FIFO");
-    return -1;
-  }
 }
 
 //frees arguments
