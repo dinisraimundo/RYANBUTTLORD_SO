@@ -14,6 +14,7 @@
 #include "io.h"
 #include "pthread.h"
 #include "src/common/protocol.h"
+#include "src/common/constants.h"
 
 struct SharedData {
   DIR* dir;
@@ -166,7 +167,8 @@ static int run_job(int in_fd, int out_fd, char* filename) {
 }
 
 static int run_client(int fd_req_pipe, int fd_resp_pipe){
-  int op;
+  int op; //talvez tenha de ser char 
+  char buffer[MAX_KEY_SIZE];
 
   if (read(fd_req_pipe, op, sizeof(char)) == -1) {
       perror("Failed to write to server FIFO");
@@ -176,7 +178,15 @@ static int run_client(int fd_req_pipe, int fd_resp_pipe){
     case OP_CODE_CONNECT:
     case OP_CODE_DISCONNECT:
     case OP_CODE_SUBSCRIBE:
+      if (read(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
+        perror("Failed to write to server FIFO");
+        return -1;
+      }
     case OP_CODE_UNSUBSCRIBE:
+      if (read(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
+        perror("Failed to write to server FIFO");
+        return -1;
+      }
   }
 }
 

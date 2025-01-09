@@ -187,3 +187,13 @@ int subscribe(const char * key, const char * client_id, int fd_resp_pipe){
   }
   return value;
 }
+
+int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe){
+  int value = unsub_key(kvs_table, key, client_id);
+
+  if (write(fd_resp_pipe, &value, sizeof(value)) == -1) {
+    perror("Failed to write to server FIFO");
+    return -1;
+  }
+  return value;
+}

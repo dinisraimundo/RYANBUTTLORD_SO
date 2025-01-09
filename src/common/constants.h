@@ -5,3 +5,4 @@
 #define MAX_STRING_SIZE 40
 #define MAX_NUMBER_SUB 10
 #define KEY_OPCODE 42
+#define MAX_KEY_SIZE 41
