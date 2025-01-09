@@ -110,7 +110,7 @@ int kvs_subscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
   strcat(buffer, key);
 
   if (write(fd_req_pipe, buffer, sizeof(buffer)) == -1) {
-    perror("Failed to write to server FIFO");
+    perror("Failed to write to request FIFO");
     return -1;
   }
 
