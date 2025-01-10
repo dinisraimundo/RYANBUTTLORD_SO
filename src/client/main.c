@@ -64,8 +64,8 @@ int main(int argc, char* argv[]) {
           continue;
         }
          
-        if (kvs_unsubscribe(keys[0], req_fifo, resp_fifo) == ) {
-            fprintf(stderr, "Command subscribe failed\n");
+        if (kvs_unsubscribe(keys[0], req_fifo, resp_fifo) == -1) {
+            fprintf(stderr, "Command unsubscribe failed\n");
         }
 
         break;

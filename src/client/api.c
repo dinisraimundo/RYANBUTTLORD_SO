@@ -69,8 +69,7 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
   char buffer[BUFFER_SIZE + 10];
   sprintf(buffer, "0 %s %s %s %c", req_pipe_path, resp_pipe_path, notif_pipe_path, last_char);
 
-  ssize_t bytes_written = write(register_fifo, buffer, BUFFER_SIZE + 10);
-  if (bytes_written == -1){
+  if (write_all(register_fifo, buffer, BUFFER_SIZE + 10) == -1){
     fprintf(stderr, "Failed to write to fifo\n");
     return -1;
   }
@@ -116,12 +115,12 @@ int kvs_subscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
   strcpy(buffer, "3");
   strcat(buffer, key);
 
-  if (write(fd_req_pipe, buffer, sizeof(buffer)) == -1) {
+  if (write_all(fd_req_pipe, buffer, sizeof(buffer)) == -1) {
     perror("Failed to write to request FIFO");
     return -1;
   }
   
-  if (read(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
+  if (read_all(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
     perror("Failed to read from response FIFO");
     return -1;
   }
@@ -147,12 +146,12 @@ int kvs_unsubscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
   strcpy(buffer, "4");
   strcat(buffer, key);
 
-  if (write(fd_req_pipe, buffer, sizeof(buffer)) == -1) {
+  if (write_all(fd_req_pipe, buffer, sizeof(buffer)) == -1) {
     perror("Failed to write to request FIFO");
     return -1;
   }
 
-  if (read(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
+  if (read_all(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
     perror("Failed to read from response FIFO");
     return -1;
   }

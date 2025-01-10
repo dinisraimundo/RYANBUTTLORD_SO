@@ -178,28 +178,28 @@ void kvs_wait(unsigned int delay_ms) {
   nanosleep(&delay, NULL);
 }
 
-int subscribe(const char * key, const char * client_id, int fd_resp_pipe){
+int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe){
   int op_code = 3;
-  int value = sub_key(kvs_table, key, client_id);
+  int value = sub_key(kvs_table, key, client_id, fd_notif_pipe);
   char buffer[3];
 
   snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);
   
-  if (write(fd_resp_pipe, buffer, strlen(buffer)) == -1) {
+  if (write_all(fd_resp_pipe, buffer, strlen(buffer)) == -1) {
     perror("Failed to write to the response FIFO while subscribing!");
     return -1;
   }
   return value;
 }
 
-int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe){
+int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe){
   int op_code = 4;
-  int value = unsub_key(kvs_table, key, client_id);
+  int value = unsub_key(kvs_table, key, client_id, fd_notif_pipe);
   char buffer[3];
 
   snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);
 
-  if (write(fd_resp_pipe, buffer, strlen(buffer)) == -1) {
+  if (write_all(fd_resp_pipe, buffer, strlen(buffer)) == -1) {
     perror("Failed to write to the response FIFO while unsubscribing");
     return -1;
   }

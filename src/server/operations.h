@@ -48,8 +48,8 @@ void kvs_wait_backup();
 /// @param delay_us Delay in milliseconds.
 void kvs_wait(unsigned int delay_ms);
 
-int subscribe(const char * key, const char * client_id, int fd_resp_pipe);
-int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe);
+int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe);
+int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe);
 
 // Setter for max_backups
 // @param _max_backups

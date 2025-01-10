@@ -118,7 +118,7 @@ void free_table(HashTable *ht) {
     free(ht);
 }
 
-int sub_key(HashTable *ht, const char * key, const char * client_id){
+int sub_key(HashTable *ht, const char * key, const char * client_id, int fd_notif){
     int index = hash(key);
 
 	KeyNode *keyNode = ht->table[index];
@@ -139,6 +139,7 @@ int sub_key(HashTable *ht, const char * key, const char * client_id){
                 if(subNode == NULL){
                     subNode = malloc(sizeof(subNode));
                     subNode->subs = strdup(client_id);
+                    subNode->fd_notif = fd_notif;
                     subNode->next = keyNode->subs;
                     keyNode->subs = subNode;
                 }
@@ -152,7 +153,7 @@ int sub_key(HashTable *ht, const char * key, const char * client_id){
     return 0;
 }
 
-int unsub_key(HashTable *ht, const char * key, const char * client_id){
+int unsub_key(HashTable *ht, const char * key, const char * client_id, int fd_notif){
     int index = hash(key);
 
 	KeyNode *keyNode = ht->table[index];

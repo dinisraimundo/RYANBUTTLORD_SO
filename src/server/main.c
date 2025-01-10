@@ -181,7 +181,7 @@ static int run_job(int in_fd, int out_fd, char* filename) {
   }
 }
 
-static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe){
+static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe, int fd_notif_pipe){
 
   Client* client = (Client*) args;
   // Mudar os argumentos para void* args e depois fazer casting para conseguilos 
@@ -192,7 +192,7 @@ static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe){
   char op[2]; //talvez tenha de ser char o op
   char buffer[MAX_KEY_SIZE];
 
-  if (read(fd_req_pipe, op, 1) == -1) {
+  if (read_all(fd_req_pipe, op, 1) == -1) {
       perror("Failed to write to server FIFO");
       return -1;
   }
@@ -201,19 +201,19 @@ static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe){
     case OP_CODE_CONNECT:
     case OP_CODE_DISCONNECT:
     case OP_CODE_SUBSCRIBE:
-      if (read(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
+      if (read_all(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
         perror("Failed to write to server FIFO");
         return -1;
       }
-      subscribe(buffer, client_id, fd_resp_pipe);
+      subscribe(buffer, client_id, fd_resp_pipe, fd_notif_pipe);
       break;
 
     case OP_CODE_UNSUBSCRIBE:
-      if (read(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
+      if (read_all(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
         perror("Failed to write to server FIFO");
         return -1;
       }
-      unsubscribe(buffer, client_id, fd_resp_pipe);
+      unsubscribe(buffer, client_id, fd_resp_pipe, fd_notif_pipe);
       break;
   }
   return -1;
@@ -312,7 +312,7 @@ void* get_register(void* arg){
   while (1){
     Client client;
 
-    if (read(fd, buffer, BUFFER_SIZE) == -1){
+    if (read_all(fd, buffer, BUFFER_SIZE) == -1){
       fprintf(stderr, "Failed to read from fifo\n");
       return NULL;
     }
@@ -485,6 +485,5 @@ int main(int argc, char** argv) {
   }
 
   kvs_terminate();
-  run_client(argv[1], 0, 0);
   return 0;
 }

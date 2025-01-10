@@ -7,10 +7,11 @@
 
 typedef struct Subscribers{
     char *subs;
+    int fd_notif;
     struct Subscribers *next;
 } Subscribers;
-typedef struct KeyNode {
 
+typedef struct KeyNode {
     char *key;
     char *value;
     Subscribers *subs;
@@ -52,7 +53,7 @@ int delete_pair(HashTable *ht, const char *key);
 /// @param ht Hash table to be deleted.
 void free_table(HashTable *ht);
 
-int sub_key(HashTable *ht, const char * key, const char * client_id);
-int unsub_key(HashTable *ht, const char * key, const char * client_id);
+int sub_key(HashTable *ht, const char * key, const char * client_id, int fd_notif);
+int unsub_key(HashTable *ht, const char * key, const char * client_id, int fd_notif);
 
 #endif  // KVS_H
