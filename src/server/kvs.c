@@ -135,7 +135,7 @@ int sub_key(HashTable *ht, const char * key, const char * client_id){
                     break;
                 }
                 previousSub = subNode;
-                subNode = previousSub->next; // Move to the next subNode
+                subNode = previousSub->next;
                 if(subNode == NULL){
                     subNode = malloc(sizeof(subNode));
                     subNode->subs = strdup(client_id);
@@ -146,7 +146,7 @@ int sub_key(HashTable *ht, const char * key, const char * client_id){
             return 1;
         }
         previousNode = keyNode;
-        keyNode = previousNode->next; // Move to the next node
+        keyNode = previousNode->next;
     }
 
     return 0;

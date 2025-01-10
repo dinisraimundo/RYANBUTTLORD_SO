@@ -179,10 +179,13 @@ void kvs_wait(unsigned int delay_ms) {
 }
 
 int subscribe(const char * key, const char * client_id, int fd_resp_pipe){
+  int op_code = 3;
   int value = sub_key(kvs_table, key, client_id);
-  char buffer[2];
+  char buffer[3];
+
+  snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);
   
-  if (write(fd_resp_pipe, &value, sizeof(value)) == -1) {
+  if (write(fd_resp_pipe, buffer, strlen(buffer)) == -1) {
     perror("Failed to write to the response FIFO while subscribing!");
     return -1;
   }
@@ -190,9 +193,13 @@ int subscribe(const char * key, const char * client_id, int fd_resp_pipe){
 }
 
 int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe){
+  int op_code = 4;
   int value = unsub_key(kvs_table, key, client_id);
+  char buffer[3];
 
-  if (write(fd_resp_pipe, &value, sizeof(value)) == -1) {
+  snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);
+
+  if (write(fd_resp_pipe, buffer, strlen(buffer)) == -1) {
     perror("Failed to write to the response FIFO while unsubscribing");
     return -1;
   }

@@ -114,11 +114,6 @@ int kvs_subscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
     return -1;
   }
 
-
-
-  if (*key < 1){
-    return 1;
-  }
   return 0;
 }
 
