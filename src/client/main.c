@@ -16,6 +16,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
   
+  int notif_fifo, req_fifo, resp_fifo; 
   char req_pipe_path[256] = "/tmp/req";
   char resp_pipe_path[256] = "/tmp/resp";
   char notif_pipe_path[256] = "/tmp/notif";
@@ -30,7 +31,7 @@ int main(int argc, char* argv[]) {
   strncat(resp_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
   strncat(notif_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
 
-  kvs_connect(req_pipe_path, resp_pipe_path, register_pipe_path, notif_pipe_path);
+  kvs_connect(req_pipe_path, resp_pipe_path, register_pipe_path, notif_pipe_path, &notif_fifo, &req_fifo, &resp_fifo);
 
   while (1) {
     switch (get_next(STDIN_FILENO)) {
@@ -50,7 +51,7 @@ int main(int argc, char* argv[]) {
           continue;
         }
          
-        if (kvs_subscribe(keys[0])) {
+        if (kvs_subscribe(keys[0], req_fifo, resp_fifo) == -1) {
             fprintf(stderr, "Command subscribe failed\n");
         }
 
@@ -63,7 +64,7 @@ int main(int argc, char* argv[]) {
           continue;
         }
          
-        if (kvs_unsubscribe(keys[0])) {
+        if (kvs_unsubscribe(keys[0], req_fifo, resp_fifo) == ) {
             fprintf(stderr, "Command subscribe failed\n");
         }
 

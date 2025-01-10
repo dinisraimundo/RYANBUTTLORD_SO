@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <errno.h>
 
@@ -33,13 +34,13 @@ typedef struct {
 } Client;
 
 
-pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t register_clients_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t n_current_backups_lock = PTHREAD_MUTEX_INITIALIZER;
 
 size_t active_backups = 0;          // Number of active backups
 size_t max_backups;                // Maximum allowed simultaneous backups
 size_t max_threads;               // Maximum allowed simultaneous threads
-char* register_fifo_name = NULL;     // Register FIFO name
+char register_fifo_name[MAX_PIPE_PATH_LENGTH] = "/tmp/";     // Register FIFO name
 char* jobs_directory = NULL;        // Jobs directory
 Client clients[MAX_SESSION_COUNT]; // Array of clients
 int session_count = 0;            // Number of active sessions
@@ -181,14 +182,22 @@ static int run_job(int in_fd, int out_fd, char* filename) {
 }
 
 static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe){
-  int result, op; //talvez tenha de ser char o op
+
+  Client* client = (Client*) args;
+  // Mudar os argumentos para void* args e depois fazer casting para conseguilos 
+  // Passei cliente porque era uma estrutura que nos ja temos feito e da jeito por isso ta gg
+  // Basicamente meti um loop infinito no registration fifo e sempre que lia informacao sobre um cliente crio logo numa thread esta funcao
+  // nao tenho a certeza que funciona mas agora conseguimos fazer isto
+
+  char op[2]; //talvez tenha de ser char o op
   char buffer[MAX_KEY_SIZE];
 
-  if (read(fd_req_pipe, op, sizeof(char)) == -1) {
+  if (read(fd_req_pipe, op, 1) == -1) {
       perror("Failed to write to server FIFO");
       return -1;
   }
-  switch(op){
+  printf("op: %s\n", op);
+  switch(atoi(op)){
     case OP_CODE_CONNECT:
     case OP_CODE_DISCONNECT:
     case OP_CODE_SUBSCRIBE:
@@ -207,6 +216,7 @@ static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe){
       unsubscribe(buffer, client_id, fd_resp_pipe);
       break;
   }
+  return -1;
 }
 
 //frees arguments
@@ -280,9 +290,14 @@ static void* get_file(void* arguments) {
 /*
   The host thread reads from the register fifo and registers clients while opening its fifos
 */
-void* host_thread(void* arg){
-  char buffer[BUFFER_SIZE];
+void* get_register(void* arg){
 
+  if (arg != NULL){
+    fprintf(stderr, "Invalid argument\n");
+    return NULL;
+  }
+  char buffer[BUFFER_SIZE];
+  printf("register fifo = %s\n", register_fifo_name);
   if (mkfifo(register_fifo_name, 0666) == -1 && errno != EEXIST){
       fprintf(stderr, "Failed to create fifo\n");
       return NULL;
@@ -345,6 +360,8 @@ void* host_thread(void* arg){
     client.id = atoi(token);
 
     clients[client.id] = client;
+    // Create thread for client
+    pthread_create(&client_thread, NULL, run_client, (void*)&client);
   }
 
   close(fd);
@@ -354,6 +371,8 @@ void* host_thread(void* arg){
 static void dispatch_threads(DIR* dir) {
   pthread_t* threads = malloc(max_threads * sizeof(pthread_t));
   pthread_t host_thread; // Tarefa Anfitriã
+  pthread_t client_thread; // Tarefa Cliente
+  int client_id;
 
   if (threads == NULL) {
     fprintf(stderr, "Failed to allocate memory for threads\n");
@@ -362,16 +381,15 @@ static void dispatch_threads(DIR* dir) {
 
   struct SharedData thread_data = {dir, jobs_directory, PTHREAD_MUTEX_INITIALIZER};
 
-
-  if (pthread_create(&host_thread, NULL, host_thread, NULL) != 0){
+  // Create host thread
+  if (pthread_create(&host_thread, NULL, get_register, NULL) != 0){
       fprintf(stderr, "Failed to create host task\n");
       pthread_mutex_destroy(&thread_data.directory_mutex);
       free(threads);
       return; 
   }
 
-  // Assume that host thread is the first to be created so i = 1 and not 0
-  for (size_t i = 1; i < max_threads; i++) {
+  for (size_t i = 0; i < max_threads; i++) {
     if (pthread_create(&threads[i], NULL, get_file, (void*)&thread_data) != 0) {
       fprintf(stderr, "Failed to create thread %zu\n", i);
       pthread_mutex_destroy(&thread_data.directory_mutex);
@@ -389,6 +407,12 @@ static void dispatch_threads(DIR* dir) {
       free(threads);
       return;
     }
+  }
+  if (pthread_join(host_thread, NULL) != 0){
+    fprintf(stderr, "Failed to join host thread\n");
+    pthread_mutex_destroy(&thread_data.directory_mutex);
+    free(threads);
+    return;
   }
 
   if (pthread_mutex_destroy(&thread_data.directory_mutex) != 0) {
@@ -410,7 +434,7 @@ int main(int argc, char** argv) {
   }
 
   jobs_directory = argv[1];
-  strcpy(register_fifo_name, argv[4]);
+  strcat(register_fifo_name, argv[4]);
 
   char* endptr;
   max_backups = strtoul(argv[3], &endptr, 10);
@@ -461,6 +485,6 @@ int main(int argc, char** argv) {
   }
 
   kvs_terminate();
-
+  run_client(argv[1], 0, 0);
   return 0;
 }

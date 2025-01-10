@@ -5,7 +5,12 @@
 #include <stddef.h>
 #include <pthread.h>
 
+typedef struct Subscribers{
+    char *subs;
+    struct Subscribers *next;
+} Subscribers;
 typedef struct KeyNode {
+
     char *key;
     char *value;
     Subscribers *subs;
@@ -17,10 +22,6 @@ typedef struct HashTable {
     pthread_rwlock_t tablelock;
 } HashTable;
 
-typedef struct Subscribers{
-    char *subs;
-    struct Subscribers *next;
-} Subscribers;
 
 /// Creates a new KVS hash table.
 /// @return Newly created hash table, NULL on failure

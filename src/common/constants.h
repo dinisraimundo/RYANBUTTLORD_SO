@@ -4,6 +4,6 @@
 #define MAX_PIPE_PATH_LENGTH 40 // tamanho max do caminho do pipe
 #define MAX_STRING_SIZE 40
 #define MAX_NUMBER_SUB 10
-#define KEY_OPCODE 42
+#define KEY_OPCODE 42   
 #define MAX_KEY_SIZE 41
 #define BUFFER_SIZE 121 
