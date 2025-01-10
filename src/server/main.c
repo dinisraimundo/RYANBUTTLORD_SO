@@ -20,6 +20,21 @@ struct SharedData {
   pthread_mutex_t directory_mutex;
 };
 
+// Struct for the clients
+typedef struct {
+    int id;
+    int request_fd;
+    int response_fd;
+    int notification_fd;
+    int active; // 1 if the session is active, 0 otherwise
+} Client;
+
+// Struct for host thread
+typedef struct {
+    char *register_fd;         // FIFO file descriptor
+    Client *clients;     // Array of clients
+} Thread_args;
+
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t n_current_backups_lock = PTHREAD_MUTEX_INITIALIZER;
 
