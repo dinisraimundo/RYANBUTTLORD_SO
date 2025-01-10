@@ -8,6 +8,7 @@
 typedef struct KeyNode {
     char *key;
     char *value;
+    Subscribers *subs;
     struct KeyNode *next;
 } KeyNode;
 
@@ -15,6 +16,11 @@ typedef struct HashTable {
     KeyNode *table[TABLE_SIZE];
     pthread_rwlock_t tablelock;
 } HashTable;
+
+typedef struct Subscribers{
+    char *subs;
+    struct Subscribers *next;
+} Subscribers;
 
 /// Creates a new KVS hash table.
 /// @return Newly created hash table, NULL on failure
@@ -45,5 +51,7 @@ int delete_pair(HashTable *ht, const char *key);
 /// @param ht Hash table to be deleted.
 void free_table(HashTable *ht);
 
+int sub_key(HashTable *ht, const char * key, const char * client_id);
+int unsub_key(HashTable *ht, const char * key, const char * client_id);
 
 #endif  // KVS_H

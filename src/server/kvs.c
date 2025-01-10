@@ -117,3 +117,71 @@ void free_table(HashTable *ht) {
     pthread_rwlock_destroy(&ht->tablelock);
     free(ht);
 }
+
+int sub_key(HashTable *ht, const char * key, const char * client_id){
+    int index = hash(key);
+
+	KeyNode *keyNode = ht->table[index];
+    KeyNode *previousNode;
+    Subscribers *subNode;
+    Subscribers *previousSub;
+
+    while (keyNode != NULL) {
+        if (strcmp(keyNode->key, key) == 0) {
+            subNode = keyNode->subs;
+
+            while (subNode != NULL) {
+                if (strcmp(subNode->subs, client_id) == 0) {
+                    break;
+                }
+                previousSub = subNode;
+                subNode = previousSub->next; // Move to the next subNode
+                if(subNode == NULL){
+                    subNode = malloc(sizeof(subNode));
+                    subNode->subs = strdup(client_id);
+                    subNode->next = keyNode->subs;
+                    keyNode->subs = subNode;
+                }
+            }
+            return 1;
+        }
+        previousNode = keyNode;
+        keyNode = previousNode->next; // Move to the next node
+    }
+
+    return 0;
+}
+
+int unsub_key(HashTable *ht, const char * key, const char * client_id){
+    int index = hash(key);
+
+	KeyNode *keyNode = ht->table[index];
+    KeyNode *previousNode;
+    Subscribers *subNode;
+    Subscribers *previousSub = NULL;
+
+    while (keyNode != NULL) {
+        if (strcmp(keyNode->key, key) == 0) {
+            subNode = keyNode->subs;
+
+            while (subNode != NULL) {
+                if (strcmp(subNode->subs, client_id) == 0) {
+                    if (previousNode == NULL) {
+                        keyNode->subs = subNode->next;
+                    } else {
+                        previousSub->next = subNode->next;
+                    }
+                    free(subNode->subs);
+                    free(subNode);
+                    return 0; // A subscrição existia e foi apagada
+                }
+                previousSub = subNode;
+                subNode = previousSub->next; 
+            }
+        }
+        previousNode = keyNode;
+        keyNode = previousNode->next;
+    }
+
+    return 1; //A subscrição não existia
+}

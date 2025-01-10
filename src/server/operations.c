@@ -177,3 +177,24 @@ void kvs_wait(unsigned int delay_ms) {
   struct timespec delay = delay_to_timespec(delay_ms);
   nanosleep(&delay, NULL);
 }
+
+int subscribe(const char * key, const char * client_id, int fd_resp_pipe){
+  int value = sub_key(kvs_table, key, client_id);
+  char buffer[2];
+  
+  if (write(fd_resp_pipe, &value, sizeof(value)) == -1) {
+    perror("Failed to write to the response FIFO while subscribing!");
+    return -1;
+  }
+  return value;
+}
+
+int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe){
+  int value = unsub_key(kvs_table, key, client_id);
+
+  if (write(fd_resp_pipe, &value, sizeof(value)) == -1) {
+    perror("Failed to write to the response FIFO while unsubscribing");
+    return -1;
+  }
+  return value;
+}
