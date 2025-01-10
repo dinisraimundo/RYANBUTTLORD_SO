@@ -22,13 +22,26 @@ struct SharedData {
   pthread_mutex_t directory_mutex;
 };
 
+// Struct for the clients
+typedef struct {
+    int id;
+    int request_fd;
+    int response_fd;
+    int notification_fd;
+    int active; // 1 if the session is active, 0 otherwise
+} Client;
+
+
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t n_current_backups_lock = PTHREAD_MUTEX_INITIALIZER;
 
-size_t active_backups = 0;     // Number of active backups
-size_t max_backups;            // Maximum allowed simultaneous backups
-size_t max_threads;            // Maximum allowed simultaneous threads
-char* jobs_directory = NULL;
+size_t active_backups = 0;          // Number of active backups
+size_t max_backups;                // Maximum allowed simultaneous backups
+size_t max_threads;               // Maximum allowed simultaneous threads
+char* register_fifo_name = NULL;     // Register FIFO name
+char* jobs_directory = NULL;        // Jobs directory
+Client clients[MAX_SESSION_COUNT]; // Array of clients
+int session_count = 0;            // Number of active sessions
 
 int filter_job_files(const struct dirent* entry) {
     const char* dot = strrchr(entry->d_name, '.');
@@ -262,9 +275,84 @@ static void* get_file(void* arguments) {
   pthread_exit(NULL);
 }
 
+// Function to be executed by the host thread
+/*
+  The host thread reads from the register fifo and registers clients while opening its fifos
+*/
+void* host_thread(void* arg){
+  char buffer[BUFFER_SIZE];
+
+  if (mkfifo(argv[4], 0666) == -1 && errno != EEXIST){
+      fprintf(stderr, "Failed to create fifo\n");
+      return NULL;
+  }
+
+  int fd = open(argv[4], O_RDONLY);
+  if (fd == -1){
+      fprintf(stderr, "Failed to open fifo\n");
+      return NULL;
+  }
+  
+  while (1){
+    Client client;
+
+    if (read(fd, buffer, BUFFER_SIZE) == -1){
+      fprintf(stderr, "Failed to read from fifo\n");
+      return NULL;
+    }
+
+    // Handle Op-code
+    char *token = strtok(buffer, " ");
+
+    if (strcmp(token, "0") != 0){
+      fprintf(stderr, "Invalid command\n");
+      return NULL;
+    }
+
+    // Opens requests pipe for reading
+    token = strtok(NULL, " ");
+    int fd_req_pipe = open(token, O_RDONLY);
+    if (fd_req_pipe == -1){
+      fprintf(stderr, "Failed to open fifo\n");
+      return NULL;
+    }
+    client.request_fd = fd_req_pipe;
+
+    // Opens response pipe for writing
+    token = strtok(NULL, " ");
+    int fd_resp_pipe = open(token, O_WRONLY);
+    if (fd_resp_pipe == -1){
+      fprintf(stderr, "Failed to open fifo\n");
+      close(fd_req_pipe);
+      return NULL;
+    }
+    client.response_fd = fd_resp_pipe;
+
+    // Opens notification pipe for writing
+    token = strtok(NULL, " ");
+    int fd_notif_pipe = open(token, O_WRONLY);
+    if (fd_notif_pipe == -1){
+      fprintf(stderr, "Failed to open fifo\n");
+      close(fd_req_pipe);
+      close(fd_resp_pipe);
+      return NULL;
+    }
+    client.notification_fd = fd_notif_pipe;
+
+    // Assigns an id to the client
+    token = strtok(NULL, " ");
+    client.id = atoi(token);
+
+    cliens[client.id] = client;
+  }
+
+  close(fd);
+  return NULL;
+}
 
 static void dispatch_threads(DIR* dir) {
   pthread_t* threads = malloc(max_threads * sizeof(pthread_t));
+  pthread_t host_thread; // Tarefa Anfitriã
 
   if (threads == NULL) {
     fprintf(stderr, "Failed to allocate memory for threads\n");
@@ -274,7 +362,15 @@ static void dispatch_threads(DIR* dir) {
   struct SharedData thread_data = {dir, jobs_directory, PTHREAD_MUTEX_INITIALIZER};
 
 
-  for (size_t i = 0; i < max_threads; i++) {
+  if (pthread_create(&host_thread, NULL, host_thread, NULL) != 0){
+      fprintf(stderr, "Failed to create host task\n");
+      pthread_mutex_destroy(&thread_data.directory_mutex);
+      free(threads);
+      return; 
+  }
+
+  // Assume that host thread is the first to be created so i = 1 and not 0
+  for (size_t i = 1; i < max_threads; i++) {
     if (pthread_create(&threads[i], NULL, get_file, (void*)&thread_data) != 0) {
       fprintf(stderr, "Failed to create thread %zu\n", i);
       pthread_mutex_destroy(&thread_data.directory_mutex);
@@ -313,6 +409,7 @@ int main(int argc, char** argv) {
   }
 
   jobs_directory = argv[1];
+  register_fifo_name = argv[4];
 
   char* endptr;
   max_backups = strtoul(argv[3], &endptr, 10);

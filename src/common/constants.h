@@ -6,3 +6,4 @@
 #define MAX_NUMBER_SUB 10
 #define KEY_OPCODE 42
 #define MAX_KEY_SIZE 41
+#define BUFFER_SIZE 121 
