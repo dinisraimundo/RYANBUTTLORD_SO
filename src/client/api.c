@@ -66,10 +66,10 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
 
   // Send the Op-code, client id and each fifos fd to the server
   // CHANGEME - Change the buffer size
-  char buffer[MAX_BUFFER_SIZE + 10];
+  char buffer[BUFFER_SIZE + 10];
   sprintf(buffer, "0 %s %s %s %c", req_pipe_path, resp_pipe_path, notif_pipe_path, last_char);
 
-  ssize_t bytes_written = write(register_fifo, buffer, MAX_BUFFER_SIZE + 10);
+  ssize_t bytes_written = write(register_fifo, buffer, BUFFER_SIZE + 10);
   if (bytes_written == -1){
     fprintf(stderr, "Failed to write to fifo\n");
     return -1;

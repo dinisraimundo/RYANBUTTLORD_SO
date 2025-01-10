@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include "constants.h"
 #include "parser.h"
@@ -343,7 +344,7 @@ void* host_thread(void* arg){
     token = strtok(NULL, " ");
     client.id = atoi(token);
 
-    cliens[client.id] = client;
+    clients[client.id] = client;
   }
 
   close(fd);
