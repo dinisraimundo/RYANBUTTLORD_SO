@@ -36,14 +36,14 @@ typedef struct {
 
 pthread_mutex_t register_clients_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t n_current_backups_lock = PTHREAD_MUTEX_INITIALIZER;
-
-size_t active_backups = 0;          // Number of active backups
-size_t max_backups;                // Maximum allowed simultaneous backups
-size_t max_threads;               // Maximum allowed simultaneous threads
-char register_fifo_name[MAX_PIPE_PATH_LENGTH] = "/tmp/";     // Register FIFO name
-char* jobs_directory = NULL;        // Jobs directory
-Client clients[MAX_SESSION_COUNT]; // Array of clients
-int session_count = 0;            // Number of active sessions
+                                                                                                   //
+size_t active_backups = 0;          // Number of active backups                                   //
+size_t max_backups;                // Maximum allowed simultaneous backups                       //
+size_t max_threads;               // Maximum allowed simultaneous threads                         //
+char register_fifo_name[MAX_PIPE_PATH_LENGTH] = "/tmp/";     // Register FIFO name               //
+char* jobs_directory = NULL;        // Jobs directory                                             //
+Client clients[MAX_SESSION_COUNT]; // Array of clients                                           //
+int session_count = 0;            // Number of active sessions                                  //
 
 int filter_job_files(const struct dirent* entry) {
     const char* dot = strrchr(entry->d_name, '.');

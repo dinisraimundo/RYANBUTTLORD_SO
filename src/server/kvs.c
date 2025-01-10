@@ -1,4 +1,5 @@
 #include "kvs.h"
+#include "constants.h"
 #include "string.h"
 #include <ctype.h>
 
@@ -30,16 +31,31 @@ struct HashTable* create_hash_table() {
 
 int write_pair(HashTable *ht, const char *key, const char *value) {
     int index = hash(key);
+    char buffer[MAX_STRING_SIZE+1];
+    memset(buffer, '\0', MAX_STRING_SIZE);
 
     // Search for the key node
 	KeyNode *keyNode = ht->table[index];
     KeyNode *previousNode;
+    Subscribers *subNode;
+    Subscribers *prevSub;
 
     while (keyNode != NULL) {
         if (strcmp(keyNode->key, key) == 0) {
             // overwrite value
             free(keyNode->value);
             keyNode->value = strdup(value);
+            subNode = keyNode->subs;
+            strcpy(buffer, value);
+
+            while(subNode != NULL){
+                if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
+                    perror("Failed to write to the notification FIFO about writing in subscription!");
+                    return -1;
+                }
+                prevSub = subNode;
+                subNode = prevSub->next;
+            }
             return 0;
         }
         previousNode = keyNode;
@@ -75,10 +91,14 @@ char* read_pair(HashTable *ht, const char *key) {
 
 int delete_pair(HashTable *ht, const char *key) {
     int index = hash(key);
+    char buffer[MAX_STRING_SIZE+1];
+    memset(buffer, '\0', MAX_STRING_SIZE);
 
     // Search for the key node
     KeyNode *keyNode = ht->table[index];
     KeyNode *prevNode = NULL;
+    Subscribers *subNode;
+    Subscribers *prevSub;
 
     while (keyNode != NULL) {
         if (strcmp(keyNode->key, key) == 0) {
@@ -87,6 +107,18 @@ int delete_pair(HashTable *ht, const char *key) {
                 // Node to delete is the first node in the list
                 ht->table[index] = keyNode->next; // Update the table to point to the next node
             } else {
+                strcpy(buffer, "DELETED");
+                subNode = keyNode->subs;
+                while(subNode != NULL){
+                    if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
+                        perror("Failed to write to the notification FIFO about writing in subscription!");
+                        return -1;
+                    }
+                    prevSub = subNode;
+                    subNode = prevSub->next;
+                    free(prevSub->subs);
+                    free(prevSub);
+                }
                 // Node to delete is not the first; bypass it
                 prevNode->next = keyNode->next; // Link the previous node to the next node
             }
@@ -106,7 +138,18 @@ int delete_pair(HashTable *ht, const char *key) {
 void free_table(HashTable *ht) {
     for (int i = 0; i < TABLE_SIZE; i++) {
         KeyNode *keyNode = ht->table[i];
+        Subscribers *subNode;
+
         while (keyNode != NULL) {
+            subNode = keyNode->subs;
+
+            while(subNode != NULL){
+                Subscribers *subTemp = subNode;
+                subNode = subNode->next;
+                free(subTemp->subs);
+                free(subTemp);
+            }
+            
             KeyNode *temp = keyNode;
             keyNode = keyNode->next;
             free(temp->key);
