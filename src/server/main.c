@@ -283,12 +283,12 @@ static void* get_file(void* arguments) {
 void* host_thread(void* arg){
   char buffer[BUFFER_SIZE];
 
-  if (mkfifo(argv[4], 0666) == -1 && errno != EEXIST){
+  if (mkfifo(register_fifo_name, 0666) == -1 && errno != EEXIST){
       fprintf(stderr, "Failed to create fifo\n");
       return NULL;
   }
 
-  int fd = open(argv[4], O_RDONLY);
+  int fd = open(register_fifo_name, O_RDONLY);
   if (fd == -1){
       fprintf(stderr, "Failed to open fifo\n");
       return NULL;
@@ -410,7 +410,7 @@ int main(int argc, char** argv) {
   }
 
   jobs_directory = argv[1];
-  register_fifo_name = argv[4];
+  strcpy(register_fifo_name, argv[4]);
 
   char* endptr;
   max_backups = strtoul(argv[3], &endptr, 10);
