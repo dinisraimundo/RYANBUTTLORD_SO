@@ -13,7 +13,8 @@
 #include "src/common/protocol.h"
 
 int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char const* server_pipe_path,
-                char const* notif_pipe_path) { // Retirei dos parametros o int* notif_pipe porque não uso
+                char const* notif_pipe_path) {
+
   // Create fifos
   int register_fifo, notif_fifo, req_fifo, resp_fifo; 
 
@@ -28,27 +29,26 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
     fprintf(stderr, "Failed to create fifo\n");
     return -1;
   }
+
   // Create the notification fifo
   if (mkfifo(notif_pipe_path, 0666) == -1){
     fprintf(stderr, "Failed to create fifo\n");
     return -1;
   }
-
-  // Open fifos
-  fprintf(stderr, "server pipe path = %s\n", server_pipe_path);
  
+
   // Open the register fifo
   if ((register_fifo = open(server_pipe_path, O_WRONLY)) == -1){
     fprintf(stderr, "Failed to open fifo\n");
     return -1;
   }
-   fprintf(stderr, "cao");
+
   // Open the request fifo
   if ((req_fifo = open(req_pipe_path, O_WRONLY)) == -1){
     fprintf(stderr, "Failed to open fifo\n");
     return -1;
   }
-  printf("entrada");  
+ 
   // Open the response fifo
   if ((resp_fifo = open(resp_pipe_path, O_RDONLY)) == -1){
     fprintf(stderr, "Failed to open fifo\n");
@@ -56,18 +56,25 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
   }
 
   // Open the notification fifo
-  // PRECISO DE LER DO FIFO PORQUE ISTO TA BLOQUEADO
   if ((notif_fifo = open(notif_pipe_path, O_RDONLY)) == -1){
     fprintf(stderr, "Failed to open fifo\n");
     return -1;
   }
-  fprintf(stderr, "cao2");
-  fprintf(stderr, "register fifo = %d\n", register_fifo);
-  // Send the client id and each fifos fd to the server
-  char buffer[MAX_PIPE_PATH_LENGTH];
-  sprintf(buffer, "%s %s %s", req_pipe_path, resp_pipe_path, notif_pipe_path);
-  ssize_t bytes_writted = write(register_fifo, buffer, MAX_PIPE_PATH_LENGTH);
-  fprintf(stderr, "bytes writted = %ld\n", bytes_writted);
+
+  // Get the client id
+  char last_char = req_pipe_path[strlen(req_pipe_path) - 1];
+
+  // Send the Op-code, client id and each fifos fd to the server
+  // CHANGEME - Change the buffer size
+  char buffer[MAX_BUFFER_SIZE + 10];
+  sprintf(buffer, "0 %s %s %s %c", req_pipe_path, resp_pipe_path, notif_pipe_path, last_char);
+
+  ssize_t bytes_written = write(register_fifo, buffer, MAX_BUFFER_SIZE + 10);
+  if (bytes_written == -1){
+    fprintf(stderr, "Failed to write to fifo\n");
+    return -1;
+  }
+
   close(register_fifo);
   return 0;
 }
