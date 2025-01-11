@@ -11,6 +11,16 @@ typedef struct Subscribers{
     struct Subscribers *next;
 } Subscribers;
 
+// Struct for the clients
+typedef struct {
+    char *id;
+    int request_fd;
+    int response_fd;
+    int notification_fd;
+    int active; // 1 if the session is active, 0 otherwise
+    KeyNode sub_keys;
+} Client;
+
 typedef struct KeyNode {
     char *key;
     char *value;

@@ -78,10 +78,27 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
   return 0;
 }
  
-int kvs_disconnect(char const* req_pipe_path, char const* resp_pipe_path, char const* notif_pipe_path) {
+int kvs_disconnect(char const* req_pipe_path, char const* resp_pipe_path, char const* notif_pipe_path,
+                    int fd_req_pipe, int fd_resp_pipe, int fd_notif_pipe) {
+  char buffer[2];
+
+  memset(buffer, '\0', 2);
+  strcpy(buffer, "2");
+
   // Se não tivermos fechado os fds primeiro temos de os trazer para aqui e fachá-los para posteriormente dar unlink
   // close pipes and unlink pipe files
   printf("Disconnecting the following pipes from the server: %s%s%s\n", req_pipe_path, resp_pipe_path, notif_pipe_path);
+
+  if (write_all(fd_req_pipe, buffer, sizeof(buffer)) == -1) {
+    perror("Failed to write to request FIFO");
+    return -1;
+  }
+
+  if (read_all(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
+    perror("Failed to read from response FIFO");
+    return -1;
+  }
+
 /*
   // Close the request fifo
   if (close(req_pipe_path) == -1){

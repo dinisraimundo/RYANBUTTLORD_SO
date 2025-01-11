@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <errno.h>
 
+#include "kvs.h"
 #include "constants.h"
 #include "parser.h"
 #include "operations.h"
@@ -23,16 +24,6 @@ struct SharedData {
   char* dir_name;
   pthread_mutex_t directory_mutex;
 };
-
-// Struct for the clients
-typedef struct {
-    int id;
-    int request_fd;
-    int response_fd;
-    int notification_fd;
-    int active; // 1 if the session is active, 0 otherwise
-} Client;
-
 
 pthread_mutex_t register_clients_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t n_current_backups_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -183,14 +174,21 @@ static int run_job(int in_fd, int out_fd, char* filename) {
 
 static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe, int fd_notif_pipe){
 
-  Client* client = (Client*) args;
+  Client* client;
+  strcpy(client->id, client_id);
+  client->notification_fd = fd_notif_pipe;
+  client->request_fd = fd_req_pipe;
+  client->response_fd = fd_resp_pipe;
+  client->active = 1;
   // Mudar os argumentos para void* args e depois fazer casting para conseguilos 
   // Passei cliente porque era uma estrutura que nos ja temos feito e da jeito por isso ta gg
   // Basicamente meti um loop infinito no registration fifo e sempre que lia informacao sobre um cliente crio logo numa thread esta funcao
   // nao tenho a certeza que funciona mas agora conseguimos fazer isto
-
-  char op[2]; //talvez tenha de ser char o op
+  KeyNode *keyNode;
+  KeyNode *prevNode;
+  char op[2]; 
   char buffer[MAX_KEY_SIZE];
+  int result;
 
   if (read_all(fd_req_pipe, op, 1) == -1) {
       perror("Failed to write to server FIFO");
@@ -200,12 +198,35 @@ static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe, 
   switch(atoi(op)){
     case OP_CODE_CONNECT:
     case OP_CODE_DISCONNECT:
+      if (read_all(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
+        perror("Failed to write to server FIFO");
+        return -1;
+      }
+
+      break;
+
     case OP_CODE_SUBSCRIBE:
       if (read_all(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
         perror("Failed to write to server FIFO");
         return -1;
       }
-      subscribe(buffer, client_id, fd_resp_pipe, fd_notif_pipe);
+      result = subscribe(buffer, client_id, fd_resp_pipe, fd_notif_pipe);
+
+      if(result == 1){
+        keyNode = client->sub_keys;
+        while(keyNode != NULL){
+          if(strcmp(keyNode->key, buffer)){
+            break;
+          }
+          prevNode = keyNode;
+          keyNode = prevNode->next;
+          if(keyNode == NULL){
+            strcpy(keyNode->key, buffer);
+            break;
+          }
+        }
+      }
+
       break;
 
     case OP_CODE_UNSUBSCRIBE:

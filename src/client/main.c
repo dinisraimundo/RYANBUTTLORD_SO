@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
   while (1) {
     switch (get_next(STDIN_FILENO)) {
       case CMD_DISCONNECT:
-        if (kvs_disconnect(req_pipe_path, resp_pipe_path, notif_pipe_path) != 0) {
+        if (kvs_disconnect(req_pipe_path, resp_pipe_path, notif_pipe_path, &notif_fifo, &req_fifo, &resp_fifo) != 0) {
           fprintf(stderr, "Failed to disconnect to the server\n");
           return 1;
         }
