@@ -13,40 +13,56 @@
 #include "src/common/constants.h"
 #include "src/common/protocol.h"
 
-int kvs_connect(char* req_pipe_path, char const* resp_pipe_path, char const* server_pipe_path,
+int kvs_connect(const char* req_pipe_path, char const* resp_pipe_path, char const* server_pipe_path,
                 char const* notif_pipe_path, int* notif_fifo, int* req_fifo, int* resp_fifo) {
+  
+
+  printf("req_pipe_path: %s\n", req_pipe_path);
+  printf("resp_pipe_path: %s\n", resp_pipe_path);
+  printf("server_pipe_path: %s\n", server_pipe_path);
+  printf("notif_pipe_path: %s\n\n", notif_pipe_path);
 
   // Create fifos
   int register_fifo;
-  printf("1");
+
   // Create the request fifo
   if (mkfifo(req_pipe_path, 0666) == -1){
     fprintf(stderr, "Failed to create fifo\n");
     return -1;
   }
-printf("2");
+
   // Create the response fifo
   if (mkfifo(resp_pipe_path, 0666) == -1){
     fprintf(stderr, "Failed to create fifo\n");
     return -1;
   }
-printf("3");
+
   // Create the notification fifo
   if (mkfifo(notif_pipe_path, 0666) == -1){
     fprintf(stderr, "Failed to create fifo\n");
     return -1;
   }
  
-  printf("antes do register fifo\n");
+ 
   // Open the register fifo
   if ((register_fifo = open(server_pipe_path, O_WRONLY)) == -1){
     fprintf(stderr, "Failed to open register FIFO\n");
     return -1;
   }
-  printf("depois do register fifo\n");
-  printf("req_pipe_path: %s\n", req_pipe_path);
+    char last_char = req_pipe_path[strlen(req_pipe_path) - 1];
+
+  // Send the Op-code, client id and each fifos fd to the server
+  // CHANGEME - Change the buffer size
+  char buffer[BUFFER_SIZE + 10];
+  memset(buffer, '\0', BUFFER_SIZE + 10);
+  sprintf(buffer, "0 %s %s %s %c", req_pipe_path, resp_pipe_path, notif_pipe_path, last_char);
+  if (write_all(register_fifo, buffer, BUFFER_SIZE + 10) == -1){
+    fprintf(stderr, "Failed to write to fifo\n");
+    return -1;
+  }
+
   // Open the request fifo
-  if ((*req_fifo = open(req_pipe_path, O_WRONLY | O_NONBLOCK)) == -1){
+  if ((*req_fifo = open(req_pipe_path, O_WRONLY)) == -1){
     fprintf(stderr, "Failed to open requests FIFO\n");
     return -1;
   }
@@ -64,16 +80,7 @@ printf("3");
   }
   printf("depois do notif fifo\n");
   // Get the client id
-  char last_char = req_pipe_path[strlen(req_pipe_path) - 1];
 
-  // Send the Op-code, client id and each fifos fd to the server
-  // CHANGEME - Change the buffer size
-  char buffer[BUFFER_SIZE + 10];
-  sprintf(buffer, "0 %s %s %s %c", req_pipe_path, resp_pipe_path, notif_pipe_path, last_char);
-  if (write_all(register_fifo, buffer, BUFFER_SIZE + 10) == -1){
-    fprintf(stderr, "Failed to write to fifo\n");
-    return -1;
-  }
 
   close(register_fifo);
   return 0;

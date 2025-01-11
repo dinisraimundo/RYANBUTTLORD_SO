@@ -360,7 +360,7 @@ void* get_register(void* arg){
   }
   
   while (1){
-    Client* client;
+    Client* client = (Client*)malloc(sizeof(Client));
     printf("Vamos tentar ler do fifo de registo\n");
     if (read_all(fd, buffer, BUFFER_SIZE, &intr) == -1){
       if (intr == 1){
@@ -379,7 +379,6 @@ void* get_register(void* arg){
       fprintf(stderr, "Invalid command\n");
       return NULL;
     }
-
     // Opens requests pipe for reading
     token = strtok(NULL, " ");
     printf("O que consegui ler: %s\n", token);
@@ -418,6 +417,7 @@ void* get_register(void* arg){
     printf("O que consegui ler: %s\n", token);
     client->id = token;
 
+    add_client(&clients, client);
     // CHANGEME para fazer com mais clientes: criar uma lista em cima antes do while probably com max session count e gg
     pthread_t client_thread;
     // Create thread for client
