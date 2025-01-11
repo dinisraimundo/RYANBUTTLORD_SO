@@ -169,14 +169,15 @@ int sub_key(HashTable *ht, const char * key, const char * client_id, int fd_noti
     int index = hash(key);
 
 	KeyNode *keyNode = ht->table[index];
+    // printf("Keynode stuff: key = %s, value = %s\n", keyNode->key, keyNode->value);
     KeyNode *previousNode;
     Subscribers *subNode;
     Subscribers *previousSub;
-
+    printf("Subscribing client '%s' to key '%s'\n", client_id, key);
     while (keyNode != NULL) {
+        printf("key: %s\n", keyNode->key);
         if (strcmp(keyNode->key, key) == 0) {
             subNode = keyNode->subs;
-
             while (subNode != NULL) {
                 if (strcmp(subNode->subs, client_id) == 0) {
                     break;
@@ -238,16 +239,24 @@ int iniciar_subscricao(Client *client, const char* key){
     KeyNode *keyNode;
     KeyNode *prevNode;
     keyNode = client->sub_keys;
+    
+    if (keyNode == NULL){
+        client->sub_keys = malloc(sizeof(KeyNode));
+        client->sub_keys->key = malloc(sizeof(char) * MAX_STRING_SIZE);
+        strcpy(client->sub_keys->key, key); 
+        return 0;
+    }
 
     while(keyNode != NULL){
-        if(strcmp(keyNode->key, key)){
+        if(strcmp(keyNode->key, key) == 0){
             return 0;
         }
         prevNode = keyNode;
         keyNode = prevNode->next;
-        if(keyNode == NULL){
-            strcpy(keyNode->key, key);
-            prevNode = NULL; //Precisamos de reiniciar o prevNode para a parte do unsubscribe
+        if (keyNode == NULL){
+            client->sub_keys = malloc(sizeof(KeyNode));
+            client->sub_keys->key = malloc(sizeof(char) * MAX_STRING_SIZE);
+            strcpy(prevNode->key, key);
             return 0;
         }
     }

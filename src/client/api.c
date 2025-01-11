@@ -17,10 +17,7 @@ int kvs_connect(const char* req_pipe_path, char const* resp_pipe_path, char cons
                 char const* notif_pipe_path, int* notif_fifo, int* req_fifo, int* resp_fifo) {
   
 
-  printf("req_pipe_path: %s\n", req_pipe_path);
-  printf("resp_pipe_path: %s\n", resp_pipe_path);
-  printf("server_pipe_path: %s\n", server_pipe_path);
-  printf("notif_pipe_path: %s\n\n", notif_pipe_path);
+
 
   // Create fifos
   int register_fifo;
@@ -50,14 +47,14 @@ int kvs_connect(const char* req_pipe_path, char const* resp_pipe_path, char cons
     return -1;
   }
 
-  const char* client_id = req_pipe_path + 8;
-
+  char* client_id = (char*)req_pipe_path + 8;
+  
   // Send the Op-code, client id and each fifos fd to the server
   // CHANGEME - Change the buffer size
   char buffer[BUFFER_SIZE];
   memset(buffer, '\0', BUFFER_SIZE);
   sprintf(buffer, "0 %s %s %s %s", req_pipe_path, resp_pipe_path, notif_pipe_path, client_id);
-  if (write_all(register_fifo, buffer, BUFFER_SIZE + 10) == -1){
+  if (write_all(register_fifo, buffer, BUFFER_SIZE) == -1){
     fprintf(stderr, "Failed to write to fifo\n");
     return -1;
   }
@@ -68,19 +65,19 @@ int kvs_connect(const char* req_pipe_path, char const* resp_pipe_path, char cons
     fprintf(stderr, "Failed to open requests FIFO\n");
     return -1;
   }
-  printf("depois do request fifo\n");
+
   // Open the response fifo
   if ((*resp_fifo = open(resp_pipe_path, O_RDONLY)) == -1){
     fprintf(stderr, "Failed to open response FIFO\n");
     return -1;
   }
-  printf("depois do response fifo\n");
+
   // Open the notification fifo
   if ((*notif_fifo = open(notif_pipe_path, O_RDONLY)) == -1){
     fprintf(stderr, "Failed to open notifications FIFO\n");
     return -1;
   }
-  printf("depois do notif fifo\n");
+
   // Get the client id
 
 

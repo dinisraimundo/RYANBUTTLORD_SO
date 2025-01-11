@@ -54,6 +54,9 @@ int main(int argc, char* argv[]) {
   strncat(resp_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
   strncat(notif_pipe_path, argv[1], strlen(argv[1]) * sizeof(char));
 
+  req_pipe_path[strlen(req_pipe_path)] = '\0';
+  resp_pipe_path[strlen(resp_pipe_path)] = '\0';
+  notif_pipe_path[strlen(notif_pipe_path)] = '\0';
 
   kvs_connect(req_pipe_path, resp_pipe_path, register_pipe_path, notif_pipe_path, &notif_fifo, &req_fifo, &resp_fifo);
 

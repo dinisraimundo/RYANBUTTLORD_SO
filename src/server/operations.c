@@ -214,7 +214,7 @@ int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd
   char buffer[3];
 
   snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);
-  
+  printf("Buffer: %s\n", buffer);
   if (write_all(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
     fprintf(stderr, "Failed to write to the response FIFO while subscribing!");
     return -1;

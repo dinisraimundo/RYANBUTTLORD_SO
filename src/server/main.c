@@ -176,10 +176,6 @@ static int run_job(int in_fd, int out_fd, char* filename) {
 void* run_client(void *args){
 
   Client* client = (Client*) args;
-  printf("Client ID: %s\n", client->id);
-  printf("Request FD: %d\n", client->request_fd);
-  printf("Response FD: %d\n", client->response_fd);
-  printf("Notification FD: %d\n", client->notification_fd);
   client->active = 1;
   // Mudar os argumentos para void* args e depois fazer casting para conseguilos 
   // Passei cliente porque era uma estrutura que nos ja temos feito e da jeito por isso ta gg
@@ -191,7 +187,6 @@ void* run_client(void *args){
   int result;
   int intr = 0;
 
-  fprintf(stderr, "request fd = %d\n", client->request_fd);
   memset(buffer, '\0', MAX_KEY_SIZE);
   while (1){
     if (read_all(client->request_fd, op, 1, &intr) == -1) {
@@ -241,10 +236,11 @@ void* run_client(void *args){
             fprintf(stderr, "Failed to read from request FIFO\n");
           }
         }
+        printf("entrou no subscribe\n");
         result = subscribe(buffer, client->id, client->response_fd, client->notification_fd);
 
-        if(result == 1){
-          if(iniciar_subscricao(client, buffer) == 1){
+        if (result == 1){
+          if (iniciar_subscricao(client, buffer) == 1){
             fprintf(stderr, "Failed to iniciate subscription\n");
           }
         }
@@ -357,16 +353,15 @@ void* get_register(void* arg){
       fprintf(stderr, "Failed to create fifo\n");
       return NULL;
   }
-
-  int fd = open(register_fifo_name, O_RDONLY);
-  if (fd == -1){
-      fprintf(stderr, "Failed to open fifo\n");
-      return NULL;
-  }
   
   while (1){
+    int fd = open(register_fifo_name, O_RDONLY);
+    if (fd == -1){
+      fprintf(stderr, "Failed to open fifo\n");
+      return NULL;
+    }
     Client* client = (Client*)malloc(sizeof(Client));
-    printf("Vamos tentar ler do fifo de registo\n");
+
 
     if (read_all(fd, buffer, BUFFER_SIZE, &intr) == -1){
       if (intr == 1){
@@ -379,7 +374,7 @@ void* get_register(void* arg){
 
     // Handle Op-code
     char *token = strtok(buffer, " ");
-    printf("O que consegui ler: %s\n", token);
+
 
     if (strcmp(token, "0") != 0){
       fprintf(stderr, "Invalid command\n");
@@ -387,7 +382,7 @@ void* get_register(void* arg){
     }
     // Opens requests pipe for reading
     token = strtok(NULL, " ");
-    printf("O que consegui ler: %s\n", token);
+
     int fd_req_pipe = open(token, O_RDONLY);
     if (fd_req_pipe == -1){
       fprintf(stderr, "Failed to open fifo\n");
@@ -396,7 +391,7 @@ void* get_register(void* arg){
     client->request_fd = fd_req_pipe;
     // Opens response pipe for writing
     token = strtok(NULL, " ");
-    printf("O que consegui ler: %s\n", token);
+
     int fd_resp_pipe = open(token, O_WRONLY);
     if (fd_resp_pipe == -1){
       fprintf(stderr, "Failed to open fifo\n");
@@ -407,7 +402,7 @@ void* get_register(void* arg){
 
     // Opens notification pipe for writing
     token = strtok(NULL, " ");
-    printf("O que consegui ler: %s\n", token);
+   
     int fd_notif_pipe = open(token, O_WRONLY);
     if (fd_notif_pipe == -1){
       fprintf(stderr, "Failed to open fifo\n");
@@ -419,7 +414,7 @@ void* get_register(void* arg){
 
     // Assigns an id to the client
     token = strtok(NULL, " ");
-    printf("O que consegui ler: %s\n", token);
+   
     client->id = token;
 
     add_client(&clients, client);
@@ -429,9 +424,9 @@ void* get_register(void* arg){
     // Create thread for client
     
     pthread_create(&client_thread, NULL, run_client, (void*)client);
+    close(fd);
   }
 
-  close(fd);
   return NULL;
 }
 
