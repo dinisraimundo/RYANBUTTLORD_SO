@@ -49,18 +49,20 @@ int kvs_connect(const char* req_pipe_path, char const* resp_pipe_path, char cons
     fprintf(stderr, "Failed to open register FIFO\n");
     return -1;
   }
-    char last_char = req_pipe_path[strlen(req_pipe_path) - 1];
+
+  const char* client_id = req_pipe_path + 8;
 
   // Send the Op-code, client id and each fifos fd to the server
   // CHANGEME - Change the buffer size
-  char buffer[BUFFER_SIZE + 10];
-  memset(buffer, '\0', BUFFER_SIZE + 10);
-  sprintf(buffer, "0 %s %s %s %c", req_pipe_path, resp_pipe_path, notif_pipe_path, last_char);
+  char buffer[BUFFER_SIZE];
+  memset(buffer, '\0', BUFFER_SIZE);
+  sprintf(buffer, "0 %s %s %s %s", req_pipe_path, resp_pipe_path, notif_pipe_path, client_id);
   if (write_all(register_fifo, buffer, BUFFER_SIZE + 10) == -1){
     fprintf(stderr, "Failed to write to fifo\n");
     return -1;
   }
-
+  // maybe semaforo aqui
+  close(register_fifo);
   // Open the request fifo
   if ((*req_fifo = open(req_pipe_path, O_WRONLY)) == -1){
     fprintf(stderr, "Failed to open requests FIFO\n");
@@ -82,7 +84,6 @@ int kvs_connect(const char* req_pipe_path, char const* resp_pipe_path, char cons
   // Get the client id
 
 
-  close(register_fifo);
   return 0;
 }
  

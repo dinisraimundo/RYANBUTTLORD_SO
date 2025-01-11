@@ -176,6 +176,10 @@ static int run_job(int in_fd, int out_fd, char* filename) {
 void* run_client(void *args){
 
   Client* client = (Client*) args;
+  printf("Client ID: %s\n", client->id);
+  printf("Request FD: %d\n", client->request_fd);
+  printf("Response FD: %d\n", client->response_fd);
+  printf("Notification FD: %d\n", client->notification_fd);
   client->active = 1;
   // Mudar os argumentos para void* args e depois fazer casting para conseguilos 
   // Passei cliente porque era uma estrutura que nos ja temos feito e da jeito por isso ta gg
@@ -187,9 +191,10 @@ void* run_client(void *args){
   int result;
   int intr = 0;
 
+  fprintf(stderr, "request fd = %d\n", client->request_fd);
   memset(buffer, '\0', MAX_KEY_SIZE);
   while (1){
-    if (read_all(client->response_fd, op, 1, &intr) == -1) {
+    if (read_all(client->request_fd, op, 1, &intr) == -1) {
       if (intr){
         fprintf(stderr, "Reading from request FIFO was interrupted\n");
       } else {
@@ -362,6 +367,7 @@ void* get_register(void* arg){
   while (1){
     Client* client = (Client*)malloc(sizeof(Client));
     printf("Vamos tentar ler do fifo de registo\n");
+
     if (read_all(fd, buffer, BUFFER_SIZE, &intr) == -1){
       if (intr == 1){
         fprintf(stderr, "Reading from register FIFO was interrupted\n");
@@ -388,7 +394,6 @@ void* get_register(void* arg){
       return NULL;
     }
     client->request_fd = fd_req_pipe;
-
     // Opens response pipe for writing
     token = strtok(NULL, " ");
     printf("O que consegui ler: %s\n", token);
@@ -418,10 +423,12 @@ void* get_register(void* arg){
     client->id = token;
 
     add_client(&clients, client);
+
     // CHANGEME para fazer com mais clientes: criar uma lista em cima antes do while probably com max session count e gg
     pthread_t client_thread;
     // Create thread for client
-    pthread_create(&client_thread, NULL, run_client, (void*)&client);
+    
+    pthread_create(&client_thread, NULL, run_client, (void*)client);
   }
 
   close(fd);
