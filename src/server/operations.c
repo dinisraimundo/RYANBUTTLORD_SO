@@ -185,10 +185,7 @@ int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd
 
   snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);
   
-  if (write_all(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
-    perror("Failed to write to the response FIFO while subscribing!");
-    return -1;
-  }
+  write_str(fd_resp_pipe, buffer);
   return value;
 }
 
@@ -199,10 +196,7 @@ int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe, int 
 
   snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);
 
-  if (write_all(fd_resp_pipe, buffer, strlen(buffer)) == -1) {
-    perror("Failed to write to the response FIFO while unsubscribing");
-    return -1;
-  }
+  write_str(fd_resp_pipe, buffer);
   return value;
 }
 

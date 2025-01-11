@@ -191,7 +191,7 @@ static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe, 
 
   memset(buffer, '\0', MAX_KEY_SIZE);
 
-  if (read_all(fd_req_pipe, op, 1) == -1) {
+  if (read(fd_req_pipe, op, 1) == -1) {
       perror("Failed to write to request FIFO");
       return -1;
   }
@@ -219,15 +219,12 @@ static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe, 
         fprintf(stderr, "Failed to close fifo\n");
       }
       
-      if (write_all(fd_resp_pipe, buffer, MAX_KEY_SIZE) == -1) {
-        perror("Failed to read from the request FIFO");
-        return -1;
-      }
+      write_str(fd_resp_pipe, buffer);
 
       break;
 
     case OP_CODE_SUBSCRIBE:
-      if (read_all(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
+      if (read(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
         perror("Failed to read from the request FIFO");
         return -1;
       }
@@ -241,7 +238,7 @@ static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe, 
       break;
 
     case OP_CODE_UNSUBSCRIBE:
-      if (read_all(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
+      if (read(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
         perror("Failed to read from the request FIFO");
         return -1;
       }
@@ -350,7 +347,7 @@ void* get_register(void* arg){
   while (1){
     Client client;
 
-    if (read_all(fd, buffer, BUFFER_SIZE) == -1){
+    if (read(fd, buffer, BUFFER_SIZE) == -1){
       fprintf(stderr, "Failed to read from fifo\n");
       return NULL;
     }

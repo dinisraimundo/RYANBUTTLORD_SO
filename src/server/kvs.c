@@ -49,10 +49,7 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
             strcpy(buffer, value);
 
             while(subNode != NULL){
-                if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
-                    perror("Failed to write to the notification FIFO about writing in subscription!");
-                    return -1;
-                }
+                write_str(subNode->fd_notif, buffer);
                 prevSub = subNode;
                 subNode = prevSub->next;
             }
@@ -110,10 +107,7 @@ int delete_pair(HashTable *ht, const char *key) {
                 strcpy(buffer, "DELETED");
                 subNode = keyNode->subs;
                 while(subNode != NULL){
-                    if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
-                        perror("Failed to write to the notification FIFO about writing in subscription!");
-                        return -1;
-                    }
+                    write_str(subNode->fd_notif, buffer);
                     prevSub = subNode;
                     subNode = prevSub->next;
                     free(prevSub->subs);
