@@ -106,10 +106,24 @@ int delete_pair(HashTable *ht, const char *key) {
         if (strcmp(keyNode->key, key) == 0) {
             // Key found; delete this node
             if (prevNode == NULL) {
+                
+                subNode = keyNode->subs;
+                snprintf(buffer, sizeof(buffer), "(%s,DELETED)", key);
+                printf("%s\n", buffer);
+                while(subNode != NULL){
+                    if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
+                        fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!");
+                        return -1;
+                    }
+                    prevSub = subNode;
+                    subNode = prevSub->next;
+                    free(prevSub->subs);
+                    free(prevSub);
+                }
+
                 // Node to delete is the first node in the list
                 ht->table[index] = keyNode->next; // Update the table to point to the next node
             } else {
-                strcpy(buffer, "DELETED");
                 subNode = keyNode->subs;
                 snprintf(buffer, sizeof(buffer), "(%s,DELETED)", key);
                 
