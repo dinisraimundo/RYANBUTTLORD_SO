@@ -80,46 +80,62 @@ int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char cons
  
 int kvs_disconnect(char const* req_pipe_path, char const* resp_pipe_path, char const* notif_pipe_path,
                     int fd_req_pipe, int fd_resp_pipe, int fd_notif_pipe) {
-  char buffer[2];
+  char buffer[3];
+  int op_code, result;
 
-  memset(buffer, '\0', 2);
+  memset(buffer, '\0', 3);
   strcpy(buffer, "2");
 
   // Se não tivermos fechado os fds primeiro temos de os trazer para aqui e fachá-los para posteriormente dar unlink
   // close pipes and unlink pipe files
   printf("Disconnecting the following pipes from the server: %s%s%s\n", req_pipe_path, resp_pipe_path, notif_pipe_path);
 
-  if (write_all(fd_req_pipe, buffer, sizeof(buffer)) == -1) {
+  if (write_all(fd_req_pipe, buffer, sizeof(char)* 2) == -1) {
     perror("Failed to write to request FIFO");
     return -1;
   }
 
-  if (read_all(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
+  if (read_all(fd_resp_pipe, buffer, sizeof(char)*3) == -1) {
     perror("Failed to read from response FIFO");
     return -1;
   }
 
-/*
-  // Close the request fifo
-  if (close(req_pipe_path) == -1){
-    fprintf(stderr, "Failed to close fifo\n");
-    return 1;
+  op_code = atoi(buffer[0]);
+  result = atoi(buffer[1]);
+
+  if(op_code != 2){
+    fprintf(stderr, "Op_code errado no kvs_subscribe\n");
   }
 
-  // Close the response fifo
-  if (close(resp_pipe_path) == -1){
-    fprintf(stderr, "Failed to close fifo\n");
-    return 1;
+  if(result == 0){
+    // Close the request fifo
+    if (close(fd_req_pipe) == -1){
+      fprintf(stderr, "Failed to close fifo\n");
+      return 1;
+    }
+
+    // Close the response fifo
+    if (close(fd_resp_pipe) == -1){
+      fprintf(stderr, "Failed to close fifo\n");
+      return 1;
+    }
+
+    // Close the notification fifo
+    if (close(fd_notif_pipe) == -1){
+      fprintf(stderr, "Failed to close fifo\n");
+      return 1;
+    }
+
+    if (unlink(req_pipe_path) == -1) {
+        perror("Failed to unlink FIFO");
+    }
+    if (unlink(resp_pipe_path) == -1) {
+        perror("Failed to unlink FIFO");
+    }
+    if (unlink(notif_pipe_path) == -1) {
+        perror("Failed to unlink FIFO");
+    }
   }
-
-  // Close the notification fifo
-  if (close(notif_pipe_path) == -1){
-    fprintf(stderr, "Failed to close fifo\n");
-    return 1;
-  }
-*/
-
-
   return 0;
 }
 
@@ -137,7 +153,7 @@ int kvs_subscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
     return -1;
   }
   
-  if (read_all(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
+  if (read_all(fd_resp_pipe, buffer, sizeof(char)*3) == -1) {
     perror("Failed to read from response FIFO");
     return -1;
   }

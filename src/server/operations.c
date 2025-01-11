@@ -185,7 +185,7 @@ int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd
 
   snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);
   
-  if (write_all(fd_resp_pipe, buffer, strlen(buffer)) == -1) {
+  if (write_all(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
     perror("Failed to write to the response FIFO while subscribing!");
     return -1;
   }
@@ -204,4 +204,28 @@ int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe, int 
     return -1;
   }
   return value;
+}
+
+int disconnect(Client *client){
+  KeyNode *keyNode;
+
+  keyNode = client->sub_keys;
+
+  while(keyNode != NULL){
+    KeyNode *temp = keyNode;
+    keyNode = keyNode->next;
+    if(remove_subs(kvs_table, client->id, temp->key) == 1){
+      fprintf(stderr, "Error while unsubscribing in hashtable\n");
+      return 1;
+    }
+    free(temp->key);
+    free(temp->value);
+    free(temp->subs);
+    free(temp);
+  }
+
+  free(client->id);
+  free(client->sub_keys);
+  free(client);
+  return 0;
 }

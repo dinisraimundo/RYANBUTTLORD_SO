@@ -189,23 +189,46 @@ static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe, 
   char buffer[MAX_KEY_SIZE];
   int result;
 
+  memset(buffer, '\0', MAX_KEY_SIZE);
+
   if (read_all(fd_req_pipe, op, 1) == -1) {
-      perror("Failed to write to server FIFO");
+      perror("Failed to write to request FIFO");
       return -1;
   }
   printf("op: %s\n", op);
+
   switch(atoi(op)){
     case OP_CODE_CONNECT:
     case OP_CODE_DISCONNECT:
-      if(disconnect(client) == -1){
+      result = disconnect(client);
+
+      if(result == 1){
         fprintf(stderr, "Failed to disconnect client\n");
+      }
+      snprintf(buffer, MAX_KEY_SIZE, "%d%d", atoi(op), result);
+
+      if (close(fd_req_pipe) == -1){
+        fprintf(stderr, "Failed to close fifo\n");
+      }
+
+      if (close(fd_resp_pipe) == -1){
+        fprintf(stderr, "Failed to close fifo\n");
+      }
+
+      if (close(fd_notif_pipe) == -1){
+        fprintf(stderr, "Failed to close fifo\n");
+      }
+      
+      if (write_all(fd_resp_pipe, buffer, MAX_KEY_SIZE) == -1) {
+        perror("Failed to read from the request FIFO");
+        return -1;
       }
 
       break;
 
     case OP_CODE_SUBSCRIBE:
       if (read_all(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
-        perror("Failed to read from the server FIFO");
+        perror("Failed to read from the request FIFO");
         return -1;
       }
       result = subscribe(buffer, client_id, fd_resp_pipe, fd_notif_pipe);
@@ -219,13 +242,13 @@ static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe, 
 
     case OP_CODE_UNSUBSCRIBE:
       if (read_all(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
-        perror("Failed to read from the server FIFO");
+        perror("Failed to read from the request FIFO");
         return -1;
       }
       result = unsubscribe(buffer, client_id, fd_resp_pipe, fd_notif_pipe);
 
       if(result == 0){
-        if(apagar_subs(client, buffer) == 1){
+        if(apagar_subs(client->sub_keys, buffer) == 1){
           fprintf(stderr, "Failed to delete subscription\n");
         }
       }

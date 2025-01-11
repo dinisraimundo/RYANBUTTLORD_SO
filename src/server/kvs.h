@@ -11,22 +11,22 @@ typedef struct Subscribers{
     struct Subscribers *next;
 } Subscribers;
 
-// Struct for the clients
-typedef struct {
-    char *id;
-    int request_fd;
-    int response_fd;
-    int notification_fd;
-    int active; // 1 if the session is active, 0 otherwise
-    KeyNode sub_keys;
-} Client;
-
 typedef struct KeyNode {
     char *key;
     char *value;
     Subscribers *subs;
     struct KeyNode *next;
 } KeyNode;
+
+// Struct for the clients
+typedef struct Client{
+    char *id;
+    int request_fd;
+    int response_fd;
+    int notification_fd;
+    int active; // 1 if the session is active, 0 otherwise
+    KeyNode *sub_keys;
+} Client;
 
 typedef struct HashTable {
     KeyNode *table[TABLE_SIZE];
@@ -65,7 +65,8 @@ void free_table(HashTable *ht);
 
 int sub_key(HashTable *ht, const char * key, const char * client_id, int fd_notif);
 int unsub_key(HashTable *ht, const char * key, const char * client_id, int fd_notif);
-int iniciar_subscricao(Client client, const char* key);
-int apagar_subscricao(Client client, const char* key);
+int iniciar_subscricao(Client *client, const char* key);
+int apagar_subscricao(KeyNode *sub_keys, const char* key);
+int remove_subs(HashTable *ht, const char *client_id, const char *key);
 
 #endif  // KVS_H

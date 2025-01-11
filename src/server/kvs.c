@@ -230,10 +230,10 @@ int unsub_key(HashTable *ht, const char * key, const char * client_id, int fd_no
     return 1; //A subscrição não existia
 }
 
-int iniciar_subscricao(Client client, const char* key){
+int iniciar_subscricao(Client *client, const char* key){
     KeyNode *keyNode;
     KeyNode *prevNode;
-    keyNode = client.sub_keys;
+    keyNode = client->sub_keys;
 
     while(keyNode != NULL){
         if(strcmp(keyNode->key, key)){
@@ -250,16 +250,16 @@ int iniciar_subscricao(Client client, const char* key){
     return 1;
 }
 
-int apagar_subscricao(Client client, const char* key){
+int apagar_subscricao(KeyNode *sub_keys, const char* key){
     KeyNode *keyNode;
     KeyNode *prevNode = NULL;
 
-    keyNode = client.sub_keys;
+    keyNode = sub_keys;
 
     while(keyNode != NULL){
         if(strcmp(keyNode->key, key)){
             if(prevNode == NULL){
-                client.sub_keys = keyNode->next;
+                sub_keys = keyNode->next;
             }
             else{
                 prevNode->next = keyNode->next;
@@ -275,9 +275,31 @@ int apagar_subscricao(Client client, const char* key){
     return 1;
 }
 
-int disconnect(Client client){
-    KeyNode *keyNode;
-    KeyNode *prevNode;
+int remove_subs(HashTable *ht, const char *client_id, const char *key){
+    int index = hash(key);
+    KeyNode *keyNode = ht->table[index];
+    KeyNode *prevNode = NULL;
+    Subscribers *subNode;
+    Subscribers *prevSub;
 
-    keyNode
+    while (keyNode != NULL) {
+        if (strcmp(keyNode->key, key) == 0) {
+            
+            subNode = keyNode->subs;
+            while(subNode != NULL){
+                if(strcmp(subNode->subs, client_id) == 0){
+                    prevSub = subNode;
+                    subNode = prevSub->next;
+                    free(prevSub->subs);
+                    free(prevSub);
+                    break;
+                }
+            }
+            return 0;
+        }
+        prevNode = keyNode; // Move prevNode to current node
+        keyNode = keyNode->next; // Move to the next node
+    }
+
+    return 1;
 }
