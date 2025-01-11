@@ -65,5 +65,7 @@ void free_table(HashTable *ht);
 
 int sub_key(HashTable *ht, const char * key, const char * client_id, int fd_notif);
 int unsub_key(HashTable *ht, const char * key, const char * client_id, int fd_notif);
+int iniciar_subscricao(Client client, const char* key);
+int apagar_subscricao(Client client, const char* key);
 
 #endif  // KVS_H

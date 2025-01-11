@@ -229,3 +229,55 @@ int unsub_key(HashTable *ht, const char * key, const char * client_id, int fd_no
 
     return 1; //A subscrição não existia
 }
+
+int iniciar_subscricao(Client client, const char* key){
+    KeyNode *keyNode;
+    KeyNode *prevNode;
+    keyNode = client.sub_keys;
+
+    while(keyNode != NULL){
+        if(strcmp(keyNode->key, key)){
+            return 0;
+        }
+        prevNode = keyNode;
+        keyNode = prevNode->next;
+        if(keyNode == NULL){
+            strcpy(keyNode->key, key);
+            prevNode = NULL; //Precisamos de reiniciar o prevNode para a parte do unsubscribe
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int apagar_subscricao(Client client, const char* key){
+    KeyNode *keyNode;
+    KeyNode *prevNode = NULL;
+
+    keyNode = client.sub_keys;
+
+    while(keyNode != NULL){
+        if(strcmp(keyNode->key, key)){
+            if(prevNode == NULL){
+                client.sub_keys = keyNode->next;
+            }
+            else{
+                prevNode->next = keyNode->next;
+            }
+            free(keyNode->key);
+            free(keyNode->value);
+            free(keyNode);
+            return 0;
+        }
+        prevNode = keyNode;
+        keyNode = prevNode->next;
+    }
+    return 1;
+}
+
+int disconnect(Client client){
+    KeyNode *keyNode;
+    KeyNode *prevNode;
+
+    keyNode
+}

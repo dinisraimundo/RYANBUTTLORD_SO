@@ -184,8 +184,7 @@ static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe, 
   // Passei cliente porque era uma estrutura que nos ja temos feito e da jeito por isso ta gg
   // Basicamente meti um loop infinito no registration fifo e sempre que lia informacao sobre um cliente crio logo numa thread esta funcao
   // nao tenho a certeza que funciona mas agora conseguimos fazer isto
-  KeyNode *keyNode;
-  KeyNode *prevNode;
+
   char op[2]; 
   char buffer[MAX_KEY_SIZE];
   int result;
@@ -198,43 +197,38 @@ static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe, 
   switch(atoi(op)){
     case OP_CODE_CONNECT:
     case OP_CODE_DISCONNECT:
-      if (read_all(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
-        perror("Failed to write to server FIFO");
-        return -1;
+      if(disconnect(client) == -1){
+        fprintf(stderr, "Failed to disconnect client\n");
       }
 
       break;
 
     case OP_CODE_SUBSCRIBE:
       if (read_all(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
-        perror("Failed to write to server FIFO");
+        perror("Failed to read from the server FIFO");
         return -1;
       }
       result = subscribe(buffer, client_id, fd_resp_pipe, fd_notif_pipe);
 
       if(result == 1){
-        keyNode = client->sub_keys;
-        while(keyNode != NULL){
-          if(strcmp(keyNode->key, buffer)){
-            break;
-          }
-          prevNode = keyNode;
-          keyNode = prevNode->next;
-          if(keyNode == NULL){
-            strcpy(keyNode->key, buffer);
-            break;
-          }
+        if(iniciar_subscricao(client, buffer) == 1){
+          fprintf(stderr, "Failed to iniciate subscription\n");
         }
       }
-
       break;
 
     case OP_CODE_UNSUBSCRIBE:
       if (read_all(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
-        perror("Failed to write to server FIFO");
+        perror("Failed to read from the server FIFO");
         return -1;
       }
-      unsubscribe(buffer, client_id, fd_resp_pipe, fd_notif_pipe);
+      result = unsubscribe(buffer, client_id, fd_resp_pipe, fd_notif_pipe);
+
+      if(result == 0){
+        if(apagar_subs(client, buffer) == 1){
+          fprintf(stderr, "Failed to delete subscription\n");
+        }
+      }
       break;
   }
   return -1;
