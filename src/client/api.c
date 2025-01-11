@@ -9,58 +9,60 @@
 #include <string.h>
 
 #include "api.h"
+#include "src/common/io.h"
 #include "src/common/constants.h"
 #include "src/common/protocol.h"
 
-int kvs_connect(char const* req_pipe_path, char const* resp_pipe_path, char const* server_pipe_path,
+int kvs_connect(char* req_pipe_path, char const* resp_pipe_path, char const* server_pipe_path,
                 char const* notif_pipe_path, int* notif_fifo, int* req_fifo, int* resp_fifo) {
 
   // Create fifos
   int register_fifo;
-
+  printf("1");
   // Create the request fifo
   if (mkfifo(req_pipe_path, 0666) == -1){
     fprintf(stderr, "Failed to create fifo\n");
     return -1;
   }
-
+printf("2");
   // Create the response fifo
   if (mkfifo(resp_pipe_path, 0666) == -1){
     fprintf(stderr, "Failed to create fifo\n");
     return -1;
   }
-
+printf("3");
   // Create the notification fifo
   if (mkfifo(notif_pipe_path, 0666) == -1){
     fprintf(stderr, "Failed to create fifo\n");
     return -1;
   }
  
-
+  printf("antes do register fifo\n");
   // Open the register fifo
   if ((register_fifo = open(server_pipe_path, O_WRONLY)) == -1){
-    fprintf(stderr, "Failed to open fifo\n");
+    fprintf(stderr, "Failed to open register FIFO\n");
     return -1;
   }
-
+  printf("depois do register fifo\n");
+  printf("req_pipe_path: %s\n", req_pipe_path);
   // Open the request fifo
-  if ((*req_fifo = open(req_pipe_path, O_WRONLY)) == -1){
-    fprintf(stderr, "Failed to open fifo\n");
+  if ((*req_fifo = open(req_pipe_path, O_WRONLY | O_NONBLOCK)) == -1){
+    fprintf(stderr, "Failed to open requests FIFO\n");
     return -1;
   }
- 
+  printf("depois do request fifo\n");
   // Open the response fifo
   if ((*resp_fifo = open(resp_pipe_path, O_RDONLY)) == -1){
-    fprintf(stderr, "Failed to open fifo\n");
+    fprintf(stderr, "Failed to open response FIFO\n");
     return -1;
   }
-
+  printf("depois do response fifo\n");
   // Open the notification fifo
   if ((*notif_fifo = open(notif_pipe_path, O_RDONLY)) == -1){
-    fprintf(stderr, "Failed to open fifo\n");
+    fprintf(stderr, "Failed to open notifications FIFO\n");
     return -1;
   }
-
+  printf("depois do notif fifo\n");
   // Get the client id
   char last_char = req_pipe_path[strlen(req_pipe_path) - 1];
 
@@ -89,24 +91,31 @@ int kvs_disconnect(char const* req_pipe_path, char const* resp_pipe_path, char c
   // close pipes and unlink pipe files
   printf("Disconnecting the following pipes from the server: %s%s%s\n", req_pipe_path, resp_pipe_path, notif_pipe_path);
 
+  int intr = 0;
   if (write_all(fd_req_pipe, buffer, sizeof(char)* 2) == -1) {
-    perror("Failed to write to request FIFO");
+    fprintf(stderr, "Failed to write to request FIFO\n");
     return -1;
   }
 
-  if (read_all(fd_resp_pipe, buffer, sizeof(char)*3) == -1) {
-    perror("Failed to read from response FIFO");
+  if (read_all(fd_resp_pipe, buffer, sizeof(char)*3, &intr) == -1) {
+    if (intr){
+      fprintf(stderr, "Reading from response FIFO was interrupted\n");  
+
+    } else {
+      fprintf(stderr, "Failed to read from response FIFO\n");
+    }
     return -1;
   }
 
-  op_code = atoi(buffer[0]);
-  result = atoi(buffer[1]);
+  op_code = atoi(buffer);
+  result = atoi(&buffer[1]);
 
-  if(op_code != 2){
+  // CHANGEME - que isto
+  if (op_code != 2){
     fprintf(stderr, "Op_code errado no kvs_subscribe\n");
   }
 
-  if(result == 0){
+  if (result == 0){
     // Close the request fifo
     if (close(fd_req_pipe) == -1){
       fprintf(stderr, "Failed to close fifo\n");
@@ -146,19 +155,26 @@ int kvs_subscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
   memset(buffer, '\0', KEY_OPCODE);
   strcpy(buffer, "3");
   strcat(buffer, key);
+  int intr = 0;
 
   if (write_all(fd_req_pipe, buffer, sizeof(buffer)) == -1) {
     perror("Failed to write to request FIFO");
     return -1;
   }
   
-  if (read_all(fd_resp_pipe, buffer, sizeof(char)*3) == -1) {
-    perror("Failed to read from response FIFO");
+  if (read_all(fd_resp_pipe, buffer, sizeof(char)*3, &intr) == -1) {
+    if (intr){
+      fprintf(stderr, "Reading from response FIFO was interrupted\n");  
+
+    } else {
+      fprintf(stderr, "Failed to read from response FIFO\n");
+    }
     return -1;
   }
 
-  op_code = atoi(buffer[0]);
-  result = atoi(buffer[1]);
+  // Same thing as doing &buffer[0]
+  op_code = atoi(buffer);
+  result = atoi(&buffer[1]);
 
   if(op_code != 3){
     fprintf(stderr, "Op_code errado no kvs_subscribe\n");
@@ -177,19 +193,26 @@ int kvs_unsubscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
   memset(buffer, '\0', KEY_OPCODE);
   strcpy(buffer, "4");
   strcat(buffer, key);
+  int intr = 0;
 
   if (write_all(fd_req_pipe, buffer, sizeof(buffer)) == -1) {
     perror("Failed to write to request FIFO");
     return -1;
   }
 
-  if (read_all(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
-    perror("Failed to read from response FIFO");
+  if (read_all(fd_resp_pipe, buffer, sizeof(buffer), &intr) == -1) {
+    if (intr){
+      fprintf(stderr, "Reading from response FIFO was interrupted\n");  
+
+    } else {
+      fprintf(stderr, "Failed to read from response FIFO\n");
+    }
+
     return -1;
   }
 
-  op_code = atoi(buffer[0]);
-  result = atoi(buffer[1]);
+  op_code = atoi(buffer);
+  result = atoi(&buffer[1]);
 
   if(op_code != 4){
     fprintf(stderr, "Op_code errado no kvs_unsubscribe\n");

@@ -1,8 +1,10 @@
 #include "kvs.h"
 #include "constants.h"
 #include "string.h"
+#include <stdio.h>
 #include <ctype.h>
 
+#include "src/common/io.h"
 #include <stdlib.h>
 
 // Hash function based on key initial.
@@ -46,11 +48,11 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
             free(keyNode->value);
             keyNode->value = strdup(value);
             subNode = keyNode->subs;
-            strcpy(buffer, value);
+            snprintf(buffer, sizeof(buffer), "(%s,%s)", key, value);
 
             while(subNode != NULL){
                 if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
-                    perror("Failed to write to the notification FIFO about writing in subscription!");
+                    fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!");
                     return -1;
                 }
                 prevSub = subNode;
@@ -109,9 +111,11 @@ int delete_pair(HashTable *ht, const char *key) {
             } else {
                 strcpy(buffer, "DELETED");
                 subNode = keyNode->subs;
+                snprintf(buffer, sizeof(buffer), "(%s,DELETED)", key);
+                
                 while(subNode != NULL){
                     if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
-                        perror("Failed to write to the notification FIFO about writing in subscription!");
+                        fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!");
                         return -1;
                     }
                     prevSub = subNode;
@@ -196,7 +200,7 @@ int sub_key(HashTable *ht, const char * key, const char * client_id, int fd_noti
     return 0;
 }
 
-int unsub_key(HashTable *ht, const char * key, const char * client_id, int fd_notif){
+int unsub_key(HashTable *ht, const char * key, const char * client_id){
     int index = hash(key);
 
 	KeyNode *keyNode = ht->table[index];
@@ -278,7 +282,6 @@ int apagar_subscricao(KeyNode *sub_keys, const char* key){
 int remove_subs(HashTable *ht, const char *client_id, const char *key){
     int index = hash(key);
     KeyNode *keyNode = ht->table[index];
-    KeyNode *prevNode = NULL;
     Subscribers *subNode;
     Subscribers *prevSub;
 
@@ -297,7 +300,6 @@ int remove_subs(HashTable *ht, const char *client_id, const char *key){
             }
             return 0;
         }
-        prevNode = keyNode; // Move prevNode to current node
         keyNode = keyNode->next; // Move to the next node
     }
 

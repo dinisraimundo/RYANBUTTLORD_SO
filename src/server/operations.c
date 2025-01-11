@@ -10,6 +10,7 @@
 #include "io.h"
 #include "kvs.h"
 #include "operations.h"
+#include "src/common/io.h"
 
 static struct HashTable *kvs_table = NULL;
 
@@ -178,6 +179,35 @@ void kvs_wait(unsigned int delay_ms) {
   nanosleep(&delay, NULL);
 }
 
+// Find client in linked list
+Client* find_client(const char* key, Client* head){
+    Client* current = head;
+
+    while (current != NULL){
+      if (strcmp(current->id, key) == 0){
+        return current;
+      }
+      current = current -> next;
+    }
+    return NULL;
+}
+
+void add_client(Client** head, Client* new_client) {
+    // If the list is empty, the new client becomes the first element
+    if (*head == NULL) {
+        *head = new_client;
+        new_client->next = NULL;
+    } else {
+        // Traverse to the end of the list and add the new client
+        Client* current = *head;
+        while (current->next != NULL) {
+            current = current->next;
+        }
+        current->next = new_client;
+        new_client->next = NULL;
+    }
+}
+
 int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe){
   int op_code = 3;
   int value = sub_key(kvs_table, key, client_id, fd_notif_pipe);
@@ -186,21 +216,27 @@ int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd
   snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);
   
   if (write_all(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
-    perror("Failed to write to the response FIFO while subscribing!");
+    fprintf(stderr, "Failed to write to the response FIFO while subscribing!");
     return -1;
   }
   return value;
 }
 
 int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe){
+
+  // CHANGEME - Tinhamos que usavas o fd notif pipe no unsub key mas eu tirei e agora na usamos o fd por isso vou meter isto so para compilar:
+  if (fd_notif_pipe == 12){
+    printf("vicente nao gostar de muilher");
+  }
+
   int op_code = 4;
-  int value = unsub_key(kvs_table, key, client_id, fd_notif_pipe);
+  int value = unsub_key(kvs_table, key, client_id);
   char buffer[3];
 
   snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);
 
   if (write_all(fd_resp_pipe, buffer, strlen(buffer)) == -1) {
-    perror("Failed to write to the response FIFO while unsubscribing");
+    fprintf(stderr, "Failed to write to the response FIFO while unsubscribing");
     return -1;
   }
   return value;

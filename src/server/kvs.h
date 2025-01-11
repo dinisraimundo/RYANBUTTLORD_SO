@@ -25,6 +25,7 @@ typedef struct Client{
     int response_fd;
     int notification_fd;
     int active; // 1 if the session is active, 0 otherwise
+    struct Client* next;
     KeyNode *sub_keys;
 } Client;
 
@@ -64,7 +65,7 @@ int delete_pair(HashTable *ht, const char *key);
 void free_table(HashTable *ht);
 
 int sub_key(HashTable *ht, const char * key, const char * client_id, int fd_notif);
-int unsub_key(HashTable *ht, const char * key, const char * client_id, int fd_notif);
+int unsub_key(HashTable *ht, const char * key, const char * client_id);
 int iniciar_subscricao(Client *client, const char* key);
 int apagar_subscricao(KeyNode *sub_keys, const char* key);
 int remove_subs(HashTable *ht, const char *client_id, const char *key);

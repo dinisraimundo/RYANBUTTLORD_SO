@@ -50,7 +50,17 @@ void kvs_wait(unsigned int delay_ms);
 
 int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe);
 int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe);
+int disconnect(Client* client);
 
+/// Finds a client based on its key
+/// @param key The key of the client
+/// @param Clients First client of the list
+Client* find_client(const char* key, Client* head);
+
+/// Adds a client to the list
+/// @param head The head of the list
+/// @param new_client The client to be added
+void add_client(Client** head, Client* new_client);
 // Setter for max_backups
 // @param _max_backups
 void set_max_backups(int _max_backups);

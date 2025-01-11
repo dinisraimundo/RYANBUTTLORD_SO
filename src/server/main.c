@@ -16,6 +16,7 @@
 #include "operations.h"
 #include "io.h"
 #include "pthread.h"
+#include "src/common/io.h"
 #include "src/common/protocol.h"
 #include "src/common/constants.h"
 
@@ -33,7 +34,7 @@ size_t max_backups;                // Maximum allowed simultaneous backups      
 size_t max_threads;               // Maximum allowed simultaneous threads                         //
 char register_fifo_name[MAX_PIPE_PATH_LENGTH] = "/tmp/";     // Register FIFO name               //
 char* jobs_directory = NULL;        // Jobs directory                                             //
-Client clients[MAX_SESSION_COUNT]; // Array of clients                                           //
+Client *clients; // Array of clients                                           //
 int session_count = 0;            // Number of active sessions                                  //
 
 int filter_job_files(const struct dirent* entry) {
@@ -172,13 +173,9 @@ static int run_job(int in_fd, int out_fd, char* filename) {
   }
 }
 
-static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe, int fd_notif_pipe){
+void* run_client(void *args){
 
-  Client* client;
-  strcpy(client->id, client_id);
-  client->notification_fd = fd_notif_pipe;
-  client->request_fd = fd_req_pipe;
-  client->response_fd = fd_resp_pipe;
+  Client* client = (Client*) args;
   client->active = 1;
   // Mudar os argumentos para void* args e depois fazer casting para conseguilos 
   // Passei cliente porque era uma estrutura que nos ja temos feito e da jeito por isso ta gg
@@ -188,73 +185,86 @@ static int run_client(const char *client_id, int fd_req_pipe, int fd_resp_pipe, 
   char op[2]; 
   char buffer[MAX_KEY_SIZE];
   int result;
+  int intr = 0;
 
   memset(buffer, '\0', MAX_KEY_SIZE);
-
-  if (read_all(fd_req_pipe, op, 1) == -1) {
-      perror("Failed to write to request FIFO");
-      return -1;
-  }
-  printf("op: %s\n", op);
-
-  switch(atoi(op)){
-    case OP_CODE_CONNECT:
-    case OP_CODE_DISCONNECT:
-      result = disconnect(client);
-
-      if(result == 1){
-        fprintf(stderr, "Failed to disconnect client\n");
+  while (1){
+    if (read_all(client->response_fd, op, 1, &intr) == -1) {
+      if (intr){
+        fprintf(stderr, "Reading from request FIFO was interrupted\n");
+      } else {
+        fprintf(stderr, "Failed to read from request FIFO\n");
       }
-      snprintf(buffer, MAX_KEY_SIZE, "%d%d", atoi(op), result);
+      return NULL;
+    }
+    printf("op: %s\n", op);
 
-      if (close(fd_req_pipe) == -1){
-        fprintf(stderr, "Failed to close fifo\n");
-      }
+    switch(atoi(op)){
+      case OP_CODE_CONNECT:
+      case OP_CODE_DISCONNECT:
+        result = disconnect(client);
 
-      if (close(fd_resp_pipe) == -1){
-        fprintf(stderr, "Failed to close fifo\n");
-      }
-
-      if (close(fd_notif_pipe) == -1){
-        fprintf(stderr, "Failed to close fifo\n");
-      }
-      
-      if (write_all(fd_resp_pipe, buffer, MAX_KEY_SIZE) == -1) {
-        perror("Failed to read from the request FIFO");
-        return -1;
-      }
-
-      break;
-
-    case OP_CODE_SUBSCRIBE:
-      if (read_all(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
-        perror("Failed to read from the request FIFO");
-        return -1;
-      }
-      result = subscribe(buffer, client_id, fd_resp_pipe, fd_notif_pipe);
-
-      if(result == 1){
-        if(iniciar_subscricao(client, buffer) == 1){
-          fprintf(stderr, "Failed to iniciate subscription\n");
+        if(result == 1){
+          fprintf(stderr, "Failed to disconnect client\n");
         }
-      }
-      break;
+        snprintf(buffer, MAX_KEY_SIZE, "%d%d", atoi(op), result);
 
-    case OP_CODE_UNSUBSCRIBE:
-      if (read_all(fd_req_pipe, buffer, MAX_KEY_SIZE) == -1) {
-        perror("Failed to read from the request FIFO");
-        return -1;
-      }
-      result = unsubscribe(buffer, client_id, fd_resp_pipe, fd_notif_pipe);
-
-      if(result == 0){
-        if(apagar_subs(client->sub_keys, buffer) == 1){
-          fprintf(stderr, "Failed to delete subscription\n");
+        if (close(client->request_fd) == -1){
+          fprintf(stderr, "Failed to close fifo\n");
         }
-      }
-      break;
+
+        if (close(client->response_fd) == -1){
+          fprintf(stderr, "Failed to close fifo\n");
+        }
+
+        if (close(client->notification_fd) == -1){
+          fprintf(stderr, "Failed to close fifo\n");
+        }
+        
+        if (write_all(client->response_fd, buffer, MAX_KEY_SIZE) == -1) {
+          fprintf(stderr, "Failed to read from the request FIFO");
+          return NULL;
+        }
+
+        break;
+
+      case OP_CODE_SUBSCRIBE:
+        if (read_all(client->request_fd, buffer, MAX_KEY_SIZE, &intr) == -1) {
+          if (intr){
+            fprintf(stderr, "Reading from request FIFO was interrupted\n");
+          } else {
+            fprintf(stderr, "Failed to read from request FIFO\n");
+          }
+        }
+        result = subscribe(buffer, client->id, client->response_fd, client->notification_fd);
+
+        if(result == 1){
+          if(iniciar_subscricao(client, buffer) == 1){
+            fprintf(stderr, "Failed to iniciate subscription\n");
+          }
+        }
+        break;
+
+      case OP_CODE_UNSUBSCRIBE:
+        if (read_all(client->request_fd, buffer, MAX_KEY_SIZE, &intr) == -1) {
+          if (intr){
+            fprintf(stderr, "Reading from request FIFO was interrupted\n");
+          } else {
+            fprintf(stderr, "Failed to read from the request FIFO");
+          }
+          return NULL;
+        }
+        result = unsubscribe(buffer, client->id, client->response_fd, client->notification_fd);
+
+        if (result == 0){
+          if (apagar_subscricao(client->sub_keys, buffer) == 1){
+            fprintf(stderr, "Failed to delete subscription\n");
+          }
+        }
+        break;
+    }
   }
-  return -1;
+  return NULL;
 }
 
 //frees arguments
@@ -330,6 +340,8 @@ static void* get_file(void* arguments) {
 */
 void* get_register(void* arg){
 
+  int intr = 0;
+
   if (arg != NULL){
     fprintf(stderr, "Invalid argument\n");
     return NULL;
@@ -348,15 +360,20 @@ void* get_register(void* arg){
   }
   
   while (1){
-    Client client;
-
-    if (read_all(fd, buffer, BUFFER_SIZE) == -1){
-      fprintf(stderr, "Failed to read from fifo\n");
+    Client* client;
+    printf("Vamos tentar ler do fifo de registo\n");
+    if (read_all(fd, buffer, BUFFER_SIZE, &intr) == -1){
+      if (intr == 1){
+        fprintf(stderr, "Reading from register FIFO was interrupted\n");
+      } else {
+        fprintf(stderr, "Failed to read from register fifo\n");
+      }
       return NULL;
     }
 
     // Handle Op-code
     char *token = strtok(buffer, " ");
+    printf("O que consegui ler: %s\n", token);
 
     if (strcmp(token, "0") != 0){
       fprintf(stderr, "Invalid command\n");
@@ -365,25 +382,28 @@ void* get_register(void* arg){
 
     // Opens requests pipe for reading
     token = strtok(NULL, " ");
+    printf("O que consegui ler: %s\n", token);
     int fd_req_pipe = open(token, O_RDONLY);
     if (fd_req_pipe == -1){
       fprintf(stderr, "Failed to open fifo\n");
       return NULL;
     }
-    client.request_fd = fd_req_pipe;
+    client->request_fd = fd_req_pipe;
 
     // Opens response pipe for writing
     token = strtok(NULL, " ");
+    printf("O que consegui ler: %s\n", token);
     int fd_resp_pipe = open(token, O_WRONLY);
     if (fd_resp_pipe == -1){
       fprintf(stderr, "Failed to open fifo\n");
       close(fd_req_pipe);
       return NULL;
     }
-    client.response_fd = fd_resp_pipe;
+    client->response_fd = fd_resp_pipe;
 
     // Opens notification pipe for writing
     token = strtok(NULL, " ");
+    printf("O que consegui ler: %s\n", token);
     int fd_notif_pipe = open(token, O_WRONLY);
     if (fd_notif_pipe == -1){
       fprintf(stderr, "Failed to open fifo\n");
@@ -391,13 +411,15 @@ void* get_register(void* arg){
       close(fd_resp_pipe);
       return NULL;
     }
-    client.notification_fd = fd_notif_pipe;
+    client->notification_fd = fd_notif_pipe;
 
     // Assigns an id to the client
     token = strtok(NULL, " ");
-    client.id = atoi(token);
+    printf("O que consegui ler: %s\n", token);
+    client->id = token;
 
-    clients[client.id] = client;
+    // CHANGEME para fazer com mais clientes: criar uma lista em cima antes do while probably com max session count e gg
+    pthread_t client_thread;
     // Create thread for client
     pthread_create(&client_thread, NULL, run_client, (void*)&client);
   }
@@ -409,8 +431,6 @@ void* get_register(void* arg){
 static void dispatch_threads(DIR* dir) {
   pthread_t* threads = malloc(max_threads * sizeof(pthread_t));
   pthread_t host_thread; // Tarefa Anfitriã
-  pthread_t client_thread; // Tarefa Cliente
-  int client_id;
 
   if (threads == NULL) {
     fprintf(stderr, "Failed to allocate memory for threads\n");
@@ -470,6 +490,8 @@ int main(int argc, char** argv) {
 		write_str(STDERR_FILENO, " <max_backups> \n");
     return 1;
   }
+
+  clients = malloc(MAX_SESSION_COUNT * sizeof(Client));
 
   jobs_directory = argv[1];
   strcat(register_fifo_name, argv[4]);
