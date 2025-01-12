@@ -306,28 +306,25 @@ int apagar_subscricao(KeyNode *sub_keys, const char* key){
     keyNode = sub_keys;
 
     while(keyNode != NULL){
-        printf("keyNode->key: %s\n", keyNode->key);
-        printf("key: %s\n", key);
         if(strcmp(keyNode->key, key) == 0){
-            printf("Encontrou a chave\n");
             if(prevNode == NULL){
                 if(keyNode->next != NULL){
+                    printf("1\n");
                     sub_keys = keyNode->next;
                 }
+                printf("2\n");
                 prevNode = keyNode;
             }
             else{
+                printf("3\n");
                 prevNode = keyNode;
                 keyNode = prevNode->next;
             }
 
             free(prevNode->key);
             free(prevNode->value);
-            printf("Antes dos subs->subs\n");
-            printf("Antes de só subs\n");
             free(prevNode->subs);
             free(prevNode);
-            printf("Supostamente apagou\n");
             return 0;
         }
         prevNode = keyNode;
