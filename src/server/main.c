@@ -213,7 +213,7 @@ void* run_client(void *args){
       case OP_CODE_DISCONNECT:
       
         result = disconnect(client);
-
+        // CHANGEME fiquei aqui
         if(result == 1){
           fprintf(stderr, "Failed to disconnect client\n");
         }
@@ -375,6 +375,7 @@ void* get_register(void* arg){
       return NULL;
     }
     Client* client = (Client*)malloc(sizeof(Client));
+    client->id = malloc(sizeof(char)*MAX_KEY_SIZE);
 
 
     if (read_all(fd, buffer, BUFFER_SIZE, &intr) == -1){
@@ -428,8 +429,8 @@ void* get_register(void* arg){
 
     // Assigns an id to the client
     token = strtok(NULL, " ");
-   
-    client->id = token;
+
+    strcpy(client->id, token);
 
     add_client(&clients, client);
 

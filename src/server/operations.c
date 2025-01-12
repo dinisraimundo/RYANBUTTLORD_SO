@@ -264,9 +264,8 @@ int disconnect(Client *client){
     free(temp->subs);
     free(temp);
   }
-
   free(client->id);
-  free(client->sub_keys);
+  free(client->sub_keys); 
   free(client);
   return 0;
 }
