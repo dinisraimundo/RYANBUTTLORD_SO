@@ -127,9 +127,15 @@ int kvs_disconnect(char const* req_pipe_path, char const* resp_pipe_path, char c
     fprintf(stderr, "Op_code errado no kvs_subscribe\n");
   }
 
-  printf("Server returned %d for operation: subscribe\n", result);
+  printf("Server returned %d for operation: disconnect\n", result);
 
   if (result == 0){
+    // Close the notification fifo
+    if (close(fd_notif_pipe) == -1){
+      fprintf(stderr, "Failed to close fifo\n");
+      return 1;
+    }
+    
     // Close the request fifo
     if (close(fd_req_pipe) == -1){
       fprintf(stderr, "Failed to close fifo\n");
@@ -138,12 +144,6 @@ int kvs_disconnect(char const* req_pipe_path, char const* resp_pipe_path, char c
 
     // Close the response fifo
     if (close(fd_resp_pipe) == -1){
-      fprintf(stderr, "Failed to close fifo\n");
-      return 1;
-    }
-
-    // Close the notification fifo
-    if (close(fd_notif_pipe) == -1){
       fprintf(stderr, "Failed to close fifo\n");
       return 1;
     }

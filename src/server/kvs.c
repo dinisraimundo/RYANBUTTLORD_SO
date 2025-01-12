@@ -49,7 +49,7 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
 
             // Se a fila de subscritores nao for nula
             // Ativo condicao
-            if ((keyNode->subs != NULL) && (keyNode->subs->ativo == 1)){ // se entra aqui significa que não é nula, ou
+            if ((keyNode->subs != NULL)){ // se entra aqui significa que não é nula, ou
                 subNode = keyNode->subs;
                 snprintf(buffer, sizeof(buffer), "(%s,%s)", key, value);
 
@@ -331,7 +331,6 @@ int remove_subs(HashTable *ht, const char *client_id, const char *key){
     int index = hash(key);
     KeyNode *keyNode = ht->table[index];
     Subscribers *subNode;
-    Subscribers *prevSub;
 
     while (keyNode != NULL) {
         if (strcmp(keyNode->key, key) == 0) {
@@ -339,10 +338,7 @@ int remove_subs(HashTable *ht, const char *client_id, const char *key){
             subNode = keyNode->subs;
             while(subNode != NULL){
                 if(strcmp(subNode->sub_clients, client_id) == 0){
-                    prevSub = subNode;
-                    subNode = prevSub->next;
-                    free(prevSub->sub_clients);
-                    free(prevSub);
+                    subNode->ativo = 0;
                     break;
                 }
             }

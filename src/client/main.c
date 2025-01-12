@@ -22,12 +22,13 @@ void* reads_notifs(void* arg){
       if (intr){
         fprintf(stderr, "Reading from the notification FIFO was interrupted\n");
       } else {
-        fprintf(stderr, "Failed to read from the notification FIFO");
+        fprintf(stderr, "Failed to read from the notification FIFO\n");
       }
       return NULL;
     }
     printf("%s\n", buffer);
   }
+  return NULL;
 }
 
 int main(int argc, char* argv[]) {
@@ -66,13 +67,11 @@ int main(int argc, char* argv[]) {
   while (1) {
     switch (get_next(STDIN_FILENO)) {
       case CMD_DISCONNECT:
-        // mano quem escreveu este codigo merece levar uma pirocada no rabo
         if (kvs_disconnect(req_pipe_path, resp_pipe_path, notif_pipe_path, req_fifo, resp_fifo, notif_fifo) != 0) {
           fprintf(stderr, "Failed to disconnect to the server\n");
           return -1;
         }
         // TODO: end notifications thread
-        printf("Disconnected from server\n");
         return 0;
 
       case CMD_SUBSCRIBE:

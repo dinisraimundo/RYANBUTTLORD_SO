@@ -195,7 +195,7 @@ void* run_client(void *args){
       if (intr){
         fprintf(stderr, "Reading from request FIFO was interrupted\n");
       } else {
-        fprintf(stderr, "Failed to read from request FIFO\n");
+        fprintf(stderr, "Failed to read from the request FIFO\n");
       }
       return NULL;
     }
@@ -213,6 +213,10 @@ void* run_client(void *args){
         }
         snprintf(buffer, MAX_KEY_SIZE, "%d%d", atoi(op), result);
 
+        if (write_all(client->response_fd, buffer, MAX_KEY_SIZE) == -1) {
+          fprintf(stderr, "Failed to read from the request FIFO\n");
+          return NULL;
+        }
         if (close(client->request_fd) == -1){
           fprintf(stderr, "Failed to close fifo\n");
         }
@@ -223,11 +227,6 @@ void* run_client(void *args){
 
         if (close(client->notification_fd) == -1){
           fprintf(stderr, "Failed to close fifo\n");
-        }
-        
-        if (write_all(client->response_fd, buffer, MAX_KEY_SIZE) == -1) {
-          fprintf(stderr, "Failed to read from the request FIFO");
-          return NULL;
         }
 
         break;
@@ -257,11 +256,10 @@ void* run_client(void *args){
           if (intr){
             fprintf(stderr, "Reading from request FIFO was interrupted\n");
           } else {
-            fprintf(stderr, "Failed to read from the request FIFO");
+            fprintf(stderr, "Failed to read from the request FIFO\n");
           }
           return NULL;
         }
-        printf("Entering Unsubscribe\n");
         result = unsubscribe(buffer, client->id, client->response_fd);
 
         if (result == 0){

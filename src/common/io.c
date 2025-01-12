@@ -34,7 +34,7 @@ int read_all(int fd, void *buffer, size_t size, int *intr) {
         }
         continue;
       }
-      fprintf(stderr, "Failed to read from pipe");
+      fprintf(stderr, "Failed to read from pipe\n");
       return -1;
     } else if (result == 0) {
       return 0;
@@ -69,7 +69,7 @@ int write_all(int fd, const void *buffer, size_t size) {
         // error for broken PIPE (error associated with writting to the closed PIPE)
         continue;
       }
-      fprintf(stderr, "Failed to write to pipe");
+      fprintf(stderr, "Failed to write to pipe\n");
       return -1;
     }
     bytes_written += (size_t)result;
