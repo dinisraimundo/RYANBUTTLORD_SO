@@ -5,6 +5,7 @@
 #include <ctype.h>
 
 #include "src/common/io.h"
+#include "src/common/constants.h"
 #include <stdlib.h>
 
 // Hash function based on key initial.
@@ -33,8 +34,10 @@ struct HashTable* create_hash_table() {
 
 int write_pair(HashTable *ht, const char *key, const char *value) {
     int index = hash(key);
-    char buffer[MAX_STRING_SIZE+1];
-    memset(buffer, '\0', MAX_STRING_SIZE);
+    char key_buffer[MAX_KEY_SIZE];
+    char value_buffer[MAX_KEY_SIZE];
+    memset(key_buffer, '\0', MAX_STRING_SIZE);
+    memset(value_buffer, '\0', MAX_STRING_SIZE);
 
     // Search for the key node
 	KeyNode *keyNode = ht->table[index];
@@ -51,13 +54,18 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
             // Ativo condicao
             if ((keyNode->subs != NULL)){ // se entra aqui significa que não é nula, ou
                 subNode = keyNode->subs;
-                snprintf(buffer, sizeof(buffer), "(%s,%s)", key, value);
 
                 // Percorremos a fila de subscritores
                 while(subNode != NULL){
                     if(subNode->ativo == 1){
-                        if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
-                            fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!\n");
+                        strcpy(key_buffer, key);
+                        strcpy(value_buffer, value);
+                        if (write_all(subNode->fd_notif, key_buffer, sizeof(char) * MAX_KEY_SIZE) == -1) {
+                            fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!");
+                            return -1;
+                        }
+                        if (write_all(subNode->fd_notif, value_buffer, sizeof(char) * MAX_KEY_SIZE) == -1) {
+                            fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!");
                             return -1;
                         }
                     }   
@@ -100,8 +108,10 @@ char* read_pair(HashTable *ht, const char *key) {
 
 int delete_pair(HashTable *ht, const char *key) {
     int index = hash(key);
-    char buffer[MAX_STRING_SIZE+1];
-    memset(buffer, '\0', MAX_STRING_SIZE);
+    char key_buffer[MAX_KEY_SIZE];
+    char value_buffer[MAX_KEY_SIZE];
+    memset(key_buffer, '\0', MAX_STRING_SIZE);
+    memset(value_buffer, '\0', MAX_STRING_SIZE);
 
     // Search for the key node
     KeyNode *keyNode = ht->table[index];
@@ -116,8 +126,13 @@ int delete_pair(HashTable *ht, const char *key) {
                 subNode = keyNode->subs;
                 while(subNode != NULL){
                     if(subNode->ativo == 1){
-                        snprintf(buffer, sizeof(buffer), "(%s,DELETED)", key);
-                        if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
+                        strcpy(key_buffer, key);
+                        strcpy(value_buffer, "DELETED");
+                        if (write_all(subNode->fd_notif, key_buffer, sizeof(char) * MAX_KEY_SIZE) == -1) {
+                            fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!");
+                            return -1;
+                        }
+                        if (write_all(subNode->fd_notif, value_buffer, sizeof(char) * MAX_KEY_SIZE) == -1) {
                             fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!");
                             return -1;
                         }
@@ -132,11 +147,16 @@ int delete_pair(HashTable *ht, const char *key) {
                 ht->table[index] = keyNode->next; // Update the table to point to the next node
             } else {
                 subNode = keyNode->subs;
-                snprintf(buffer, sizeof(buffer), "(%s,DELETED)", key);
                 
                 while(subNode != NULL){
                     if(subNode->ativo == 1){
-                        if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
+                        strcpy(key_buffer, key);
+                        strcpy(value_buffer, "DELETED");
+                        if (write_all(subNode->fd_notif, key_buffer, sizeof(char) * MAX_KEY_SIZE) == -1) {
+                            fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!");
+                            return -1;
+                        }
+                        if (write_all(subNode->fd_notif, value_buffer, sizeof(char) * MAX_KEY_SIZE) == -1) {
                             fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!");
                             return -1;
                         }
