@@ -253,7 +253,7 @@ void* run_client(void *args){
         break;
 
       case OP_CODE_UNSUBSCRIBE:
-        printf("Entrou no case unsubscribe\n");
+      
         if (read_all(client->request_fd, buffer, MAX_KEY_SIZE, &intr) == -1) {
           if (intr){
             fprintf(stderr, "Reading from request FIFO was interrupted\n");
@@ -262,8 +262,7 @@ void* run_client(void *args){
           }
           return NULL;
         }
-        printf("LEU\n");
-        printf("buffer no case unsub: %s\n", buffer);
+
         result = unsubscribe(buffer, client->id, client->response_fd, client->notification_fd);
 
         if (result == 0){

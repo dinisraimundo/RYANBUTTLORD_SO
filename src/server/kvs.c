@@ -49,6 +49,7 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
             snprintf(buffer, sizeof(buffer), "(%s,%s)", key, value);
 
             while(subNode != NULL){
+                printf("sub: %s\n", subNode->subs);
                 printf("Starting to write to the notification FIFO about a key,value named %s\n", buffer);
                 if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
                     fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!\n");
@@ -238,24 +239,20 @@ int unsub_key(HashTable *ht, const char * key, const char * client_id){
         if (strcmp(keyNode->key, key) == 0) {
             printf("Encontrou a chave\n");
             subNode = keyNode->subs;
-
-            while (subNode != NULL) {
-                if (strcmp(subNode->subs, client_id) == 0) {
+            while (subNode != NULL) { // Itero pela lista de subscribers
+                if (strcmp(subNode->subs, client_id) == 0) { // Encontro o cliente nos subscribers
                     printf("Encontrou o cliente\n");
-                    if (previousNode == NULL) {
-                        printf("problema no if\n");
-                        keyNode->subs = subNode->next;
-                        printf("Não é no if\n");
+                    if (previousSub == NULL) { //Se só tiver um subscrito entra nesta
+                        if(subNode->next != NULL){
+                            keyNode->subs = subNode->next;
+                        }
+                        previousSub = subNode;
                     } else {
-                        printf("Problema no else\n");
                         previousSub = subNode;
                         subNode = previousSub->next;
-                        printf("Não é no else\n");
                     }
-                    printf("!!!\n");
                     free(previousSub->subs);
                     free(previousSub);
-                    printf("...\n");
                     return 0; // A subscrição existia e foi apagada
                 }
                 previousSub = subNode;
@@ -265,7 +262,6 @@ int unsub_key(HashTable *ht, const char * key, const char * client_id){
         previousNode = keyNode;
         keyNode = previousNode->next;
     }
-    printf("Não encontrou a chave\n");
 
     return 1; //A subscrição não existia
 }
@@ -303,21 +299,30 @@ int apagar_subscricao(KeyNode *sub_keys, const char* key){
     keyNode = sub_keys;
 
     while(keyNode != NULL){
-        if(strcmp(keyNode->key, key)){
+        printf("keyNode->key: %s\n", keyNode->key);
+        printf("key: %s\n", key);
+        if(strcmp(keyNode->key, key) == 0){
+            printf("Encontrou a chave\n");
             if(prevNode == NULL){
-                sub_keys = keyNode->next;
+                if(keyNode->next != NULL){
+                    sub_keys = keyNode->next;
+                }
+                prevNode = keyNode;
             }
             else{
-                prevNode->next = keyNode->next;
+                prevNode = keyNode;
+                keyNode = prevNode->next;
             }
-            free(keyNode->key);
-            free(keyNode->value);
-            free(keyNode);
+            free(prevNode->key);
+            free(prevNode->value);
+            free(prevNode);
+            printf("Supostamente apagou\n");
             return 0;
         }
         prevNode = keyNode;
         keyNode = prevNode->next;
     }
+    printf("Não apagou\n");
     return 1;
 }
 
