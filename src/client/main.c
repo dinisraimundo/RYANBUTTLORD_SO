@@ -14,11 +14,12 @@ void* reads_notifs(void* arg){
 
   int *fd_notif = (int*) arg;
   int fd_notif_pipe = *fd_notif;
-  char buffer[MAX_STRING_SIZE+1];
+  char key_buffer[MAX_KEY_SIZE];
+  char value_buffer[MAX_KEY_SIZE];
   int intr = 0;
 
   while(1){
-    if (read_all(fd_notif_pipe, buffer, sizeof(buffer), &intr) == -1) {
+    if (read_all(fd_notif_pipe, key_buffer, sizeof(char)*MAX_KEY_SIZE, &intr) == -1) {
       if (intr){
         fprintf(stderr, "Reading from the notification FIFO was interrupted\n");
       } else {
@@ -26,7 +27,15 @@ void* reads_notifs(void* arg){
       }
       return NULL;
     }
-    printf("%s\n", buffer);
+    if (read_all(fd_notif_pipe, value_buffer, sizeof(char)*MAX_KEY_SIZE, &intr) == -1) {
+      if (intr){
+        fprintf(stderr, "Reading from the notification FIFO was interrupted\n");
+      } else {
+        fprintf(stderr, "Failed to read from the notification FIFO\n");
+      }
+      return NULL;
+    }
+    printf("(%s,%s)\n", key_buffer, value_buffer);
   }
   return NULL;
 }
