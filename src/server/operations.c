@@ -210,9 +210,28 @@ void add_client(Client** head, Client* new_client) {
     }
 }
 
+void print_everything_at_key(const char* key,HashTable *ht){
+    int index = hash(key);
+    printf("Dar print das subscrições por parte da hashtable\n");
+    KeyNode* node = ht->table[index];
+    while (node != NULL){
+      if (strcmp(node->key, key) == 0){
+        Subscribers* node_subscritores = node->subs;
+        while (node_subscritores != NULL){
+          printf("Id do cliente: %s , fd notif = %d, ativo = %d", node_subscritores->sub_clients, node_subscritores->fd_notif, node_subscritores->ativo);
+          node_subscritores = node_subscritores->next;
+        }
+      }
+      node = node->next;
+    }
+}
+
 int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe){
   int op_code = 3;
+  print_everything_at_key(key, kvs_table);
+  printf("Vamos para sub_key\n");
   int value = sub_key(kvs_table, key, client_id, fd_notif_pipe);
+  printf("Saimos do sub_key\n");
   char buffer[3];
 
   snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);
@@ -223,21 +242,17 @@ int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd
   return value;
 }
 
-int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe){
-
-  // CHANGEME - Tinhamos que usavas o fd notif pipe no unsub key mas eu tirei e agora na usamos o fd por isso vou meter isto so para compilar:
-  if (fd_notif_pipe != 12){
-    printf("vicente nao gostar de mulher\n");
-  }
+int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe){
 
   int op_code = 4;
   int value = unsub_key(kvs_table, key, client_id);
   char buffer[3];
-
+  memset(buffer, '\0', sizeof(buffer));
+  printf("saimos do unsub key\n");
   snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);
   printf("%s\n", buffer);
 
-  if (write_all(fd_resp_pipe, buffer, strlen(buffer)) == -1) {
+  if (write_all(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
     fprintf(stderr, "Failed to write to the response FIFO while unsubscribing");
     return -1;
   }
@@ -247,21 +262,19 @@ int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe, int 
 }
 
 int disconnect(Client *client){
-  KeyNode *keyNode;
+  Chaves_subscritas *keyNode;
 
   keyNode = client->sub_keys;
 
 
   while(keyNode != NULL){
-    KeyNode *temp = keyNode;
+    Chaves_subscritas *temp = keyNode;
     keyNode = keyNode->next;
     if(remove_subs(kvs_table, client->id, temp->key) == 1){
       fprintf(stderr, "Error while unsubscribing in hashtable\n");
       return -1;
     }
     free(temp->key);
-    free(temp->value);
-    free(temp->subs);
     free(temp);
   }
   free(client->id);

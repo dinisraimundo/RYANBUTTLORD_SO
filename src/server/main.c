@@ -173,6 +173,34 @@ static int run_job(int in_fd, int out_fd, char* filename) {
   }
 }
 
+void print_everything_at_key(char* key,HashTable *ht){
+    int index = hash(key);
+    printf("Dar print das subscrições por parte da hashtable\n");
+    KeyNode* node = ht->table[index];
+    while (node != NULL){
+      if (strcmp(node->key, key) == 0){
+        Subscribers* node_subscritores = node->subs;
+        while (node_subscritores != NULL){
+          printf("Id do cliente: %s , fd notif = %d, ativo = %d", node_subscritores->sub_clients, node_subscritores->fd_notif, node_subscritores->ativo);
+          node_subscritores = node_subscritores->next;
+        }
+      }
+      node = node->next;
+    }
+    Client* client = clients;
+    printf("Client ID: %s\n", client->id);
+    printf("Request FD: %d\n", client->request_fd);
+    printf("Response FD: %d\n", client->response_fd);
+    printf("Notification FD: %d\n", client->notification_fd);
+    printf("Active: %d\n", client->active);
+    Chaves_subscritas* chaves = client->sub_keys;
+    printf("Subscriçoes:\n");
+    while (chaves != NULL){
+      printf("chave = %s, active = %d\n", chaves->key, chaves->active);
+    }
+    printf("\n");
+}
+
 void* run_client(void *args){
 
   Client* client = (Client*) args;
@@ -247,6 +275,7 @@ void* run_client(void *args){
             fprintf(stderr, "Failed to read from request FIFO\n");
           }
         }
+        
         printf("começou a subscrição\n");
         result = subscribe(buffer, client->id, client->response_fd, client->notification_fd);
 
@@ -259,7 +288,7 @@ void* run_client(void *args){
         break;
 
       case OP_CODE_UNSUBSCRIBE:
-      
+        printf("Inside opcode = unsubscribe\n");
         if (read_all(client->request_fd, buffer, MAX_KEY_SIZE, &intr) == -1) {
           if (intr){
             fprintf(stderr, "Reading from request FIFO was interrupted\n");
@@ -268,8 +297,8 @@ void* run_client(void *args){
           }
           return NULL;
         }
-
-        result = unsubscribe(buffer, client->id, client->response_fd, client->notification_fd);
+        printf("Buffer = %s\n", buffer);
+        result = unsubscribe(buffer, client->id, client->response_fd);
 
         if (result == 0){
           if (apagar_subscricao(client->sub_keys, buffer) == 1){

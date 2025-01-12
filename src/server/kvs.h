@@ -6,8 +6,9 @@
 #include <pthread.h>
 
 typedef struct Subscribers{
-    char *subs;
+    char *sub_clients;
     int fd_notif;
+    int ativo; // 1 se a subscrição está ativa, 0 caso contrário
     struct Subscribers *next;
 } Subscribers;
 
@@ -18,6 +19,12 @@ typedef struct KeyNode {
     struct KeyNode *next;
 } KeyNode;
 
+typedef struct Chaves_subscritas{
+    char *key;
+    int active; // 1 if the session is active, 0 otherwise
+    struct Chaves_subscritas *next;
+} Chaves_subscritas;
+
 // Struct for the clients
 typedef struct Client{
     char *id;
@@ -26,7 +33,7 @@ typedef struct Client{
     int notification_fd;
     int active; // 1 if the session is active, 0 otherwise
     struct Client* next;
-    KeyNode *sub_keys;
+    Chaves_subscritas *sub_keys;
 } Client;
 
 typedef struct HashTable {
@@ -67,7 +74,7 @@ void free_table(HashTable *ht);
 int sub_key(HashTable *ht, const char * key, const char * client_id, int fd_notif);
 int unsub_key(HashTable *ht, const char * key, const char * client_id);
 int iniciar_subscricao(Client *client, const char* key);
-int apagar_subscricao(KeyNode *sub_keys, const char* key);
+int apagar_subscricao(Chaves_subscritas *sub_keys, const char* key);
 int remove_subs(HashTable *ht, const char *client_id, const char *key);
 
 #endif  // KVS_H

@@ -49,7 +49,7 @@ void kvs_wait_backup();
 void kvs_wait(unsigned int delay_ms);
 
 int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe);
-int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe);
+int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe);
 int disconnect(Client* client);
 
 /// Finds a client based on its key
