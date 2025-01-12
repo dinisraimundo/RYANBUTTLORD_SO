@@ -102,7 +102,7 @@ static int run_job(int in_fd, int out_fd, char* filename) {
 
       case CMD_DELETE:
         num_pairs = parse_read_delete(in_fd, keys, MAX_WRITE_SIZE, MAX_STRING_SIZE);
-
+        printf("num_pairs: %ld\n", num_pairs);
         if (num_pairs == 0) {
           write_str(STDERR_FILENO, "Invalid command. See HELP for usage\n");
           continue;
@@ -253,6 +253,7 @@ void* run_client(void *args){
         break;
 
       case OP_CODE_UNSUBSCRIBE:
+        printf("Entrou no case unsubscribe\n");
         if (read_all(client->request_fd, buffer, MAX_KEY_SIZE, &intr) == -1) {
           if (intr){
             fprintf(stderr, "Reading from request FIFO was interrupted\n");
@@ -261,6 +262,8 @@ void* run_client(void *args){
           }
           return NULL;
         }
+        printf("LEU\n");
+        printf("buffer no case unsub: %s\n", buffer);
         result = unsubscribe(buffer, client->id, client->response_fd, client->notification_fd);
 
         if (result == 0){

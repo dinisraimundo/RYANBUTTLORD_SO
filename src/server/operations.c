@@ -92,11 +92,12 @@ int kvs_delete(size_t num_pairs, char keys[][MAX_STRING_SIZE], int fd) {
     fprintf(stderr, "KVS state must be initialized\n");
     return 1;
   }
-  
+
   pthread_rwlock_wrlock(&kvs_table->tablelock);
 
   int aux = 0;
   for (size_t i = 0; i < num_pairs; i++) {
+    if (delete_pair(kvs_table, keys[i]) != 0) {
       if (!aux) {
         write_str(fd, "[");
         aux = 1;
@@ -104,6 +105,7 @@ int kvs_delete(size_t num_pairs, char keys[][MAX_STRING_SIZE], int fd) {
       char str[MAX_STRING_SIZE];
       snprintf(str, MAX_STRING_SIZE, "(%s,KVSMISSING)", keys[i]);
       write_str(fd, str);
+    }
   }
   if (aux) {
     write_str(fd, "]\n");
@@ -225,8 +227,8 @@ int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd
 int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe){
 
   // CHANGEME - Tinhamos que usavas o fd notif pipe no unsub key mas eu tirei e agora na usamos o fd por isso vou meter isto so para compilar:
-  if (fd_notif_pipe == 12){
-    printf("vicente nao gostar de muilher");
+  if (fd_notif_pipe != 12){
+    printf("vicente nao gostar de mulher\n");
   }
 
   int op_code = 4;
@@ -234,11 +236,14 @@ int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe, int 
   char buffer[3];
 
   snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);
+  printf("%s\n", buffer);
 
   if (write_all(fd_resp_pipe, buffer, strlen(buffer)) == -1) {
     fprintf(stderr, "Failed to write to the response FIFO while unsubscribing");
     return -1;
   }
+  printf("Escreveu\n");
+
   return value;
 }
 

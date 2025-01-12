@@ -206,12 +206,12 @@ int kvs_unsubscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
   strcpy(buffer, "4");
   strcat(buffer, key);
   int intr = 0;
-
+  printf("Antes do write do unsubscribe\n");
   if (write_all(fd_req_pipe, buffer, sizeof(buffer)) == -1) {
     perror("Failed to write to request FIFO");
     return -1;
   }
-
+  printf("Depois do write do unsubscribe\n");
   if (read_all(fd_resp_pipe, buffer, sizeof(buffer), &intr) == -1) {
     if (intr){
       fprintf(stderr, "Reading from response FIFO was interrupted\n");  
@@ -222,6 +222,7 @@ int kvs_unsubscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
 
     return -1;
   }
+  printf("Depois do read do unsubscribe\n");
 
   op_code = atoi(buffer);
   result = atoi(&buffer[1]);

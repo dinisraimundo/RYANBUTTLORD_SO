@@ -27,7 +27,7 @@ void* reads_notifs(void* arg){
       }
       return NULL;
     }
-    printf("%s", buffer);
+    printf("%s\n", buffer);
   }
 }
 
