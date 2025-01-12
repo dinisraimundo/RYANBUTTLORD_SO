@@ -205,16 +205,16 @@ void* run_client(void *args){
     switch(atoi(op)){
       case OP_CODE_CONNECT:
       case OP_CODE_DISCONNECT:
-      
+        printf("We enter disconnect\n");
         result = disconnect(client);
         // CHANGEME fiquei aqui
         if(result == 1){
           fprintf(stderr, "Failed to disconnect client\n");
         }
-        snprintf(buffer, MAX_KEY_SIZE, "%d%d", atoi(op), result);
+        snprintf(buffer, MAX_KEY_SIZE, "%s%d", op, result);
 
         if (write_all(client->response_fd, buffer, MAX_KEY_SIZE) == -1) {
-          fprintf(stderr, "Failed to read from the request FIFO\n");
+          fprintf(stderr, "Failed to write to the response FIFO\n");
           return NULL;
         }
         if (close(client->request_fd) == -1){
@@ -228,7 +228,7 @@ void* run_client(void *args){
         if (close(client->notification_fd) == -1){
           fprintf(stderr, "Failed to close fifo\n");
         }
-
+        printf("completely leave disconnect\n");
         break;
 
       case OP_CODE_SUBSCRIBE:

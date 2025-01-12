@@ -263,18 +263,17 @@ int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe){
 }
 
 int disconnect(Client *client){
-  Chaves_subscritas *keyNode;
 
+  Chaves_subscritas *keyNode;
   keyNode = client->sub_keys;
 
-
-  while(keyNode != NULL){
-    keyNode = keyNode->next;
-    if(remove_subs(kvs_table, client->id, keyNode->key) == 1){
+  while (keyNode != NULL){
+    if (remove_subs(kvs_table, client->id, keyNode->key) == 1){
       fprintf(stderr, "Error while unsubscribing in hashtable\n");
       return -1;
     }
     keyNode->active = 0;
+    keyNode = keyNode->next;
   }
   client->active = 0;
   return 0;

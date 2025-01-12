@@ -51,6 +51,7 @@ void kvs_wait(unsigned int delay_ms);
 int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe);
 int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe);
 int disconnect(Client* client);
+void add_client(Client** head, Client* new_client);
 
 /// Finds a client based on its key
 /// @param key The key of the client
