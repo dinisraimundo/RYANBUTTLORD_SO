@@ -251,10 +251,10 @@ int disconnect(Client *client){
 
   keyNode = client->sub_keys;
 
-  while(keyNode != NULL){
-    KeyNode *temp = keyNode;
-    keyNode = keyNode->next;
-    if(remove_subs(kvs_table, client->id, temp->key) == 1){
+
+  while (keyNode != NULL){
+
+    if (remove_subs(kvs_table, client->id, keyNode->key) == 1){
       fprintf(stderr, "Error while unsubscribing in hashtable\n");
       return -1;
     }
@@ -262,6 +262,7 @@ int disconnect(Client *client){
     free(temp->value);
     free(temp->subs);
     free(temp);
+    keyNode = keyNode->next;
   }
 
   free(client->id);

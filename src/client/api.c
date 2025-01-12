@@ -86,18 +86,22 @@ int kvs_connect(const char* req_pipe_path, char const* resp_pipe_path, char cons
  
 int kvs_disconnect(char const* req_pipe_path, char const* resp_pipe_path, char const* notif_pipe_path,
                     int fd_req_pipe, int fd_resp_pipe, int fd_notif_pipe) {
-  char buffer[3];
   int op_code, result;
+  char buffer[KEY_OPCODE];
 
-  memset(buffer, '\0', 3);
+  memset(buffer, '\0', KEY_OPCODE);
   strcpy(buffer, "2");
 
   // Se não tivermos fechado os fds primeiro temos de os trazer para aqui e fachá-los para posteriormente dar unlink
   // close pipes and unlink pipe files
-  printf("Disconnecting the following pipes from the server: %s%s%s\n", req_pipe_path, resp_pipe_path, notif_pipe_path);
+  printf("Disconnecting the following pipes from the server: %s ; %s ; %s\n", req_pipe_path, resp_pipe_path, notif_pipe_path);
+  printf("Request FIFO descriptor: %d\n", fd_req_pipe);
+  printf("Response FIFO descriptor: %d\n", fd_resp_pipe);
+  printf("Notification FIFO descriptor: %d\n", fd_notif_pipe);
 
   int intr = 0;
-  if (write_all(fd_req_pipe, buffer, sizeof(char)* 2) == -1) {
+
+  if (write_all(fd_req_pipe, buffer, sizeof(buffer)) == -1) {
     fprintf(stderr, "Failed to write to request FIFO\n");
     return -1;
   }

@@ -190,9 +190,9 @@ void* run_client(void *args){
   printf("Entrar no run client\n");
 
   memset(buffer, '\0', MAX_KEY_SIZE);
+  int count = 0;
   while (1){
-
-    printf("Ler op\n");
+    
     if (read_all(client->request_fd, op, 1, &intr) == -1) {
       if (intr){
         fprintf(stderr, "Reading from request FIFO was interrupted\n");
@@ -201,11 +201,17 @@ void* run_client(void *args){
       }
       return NULL;
     }
-    printf("op: %s\n", op);
+    op[1] = '\0';
+    if (!count)
+    {printf("op: %s\n", op);
+    printf("client->request_fd: %d\n", client->request_fd);
+    }
+    count++;
 
     switch(atoi(op)){
       case OP_CODE_CONNECT:
       case OP_CODE_DISCONNECT:
+      
         result = disconnect(client);
 
         if(result == 1){
