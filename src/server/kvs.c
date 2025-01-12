@@ -38,9 +38,7 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
 
     // Search for the key node
 	KeyNode *keyNode = ht->table[index];
-    KeyNode *previousNode;
     Subscribers *subNode;
-    Subscribers *prevSub;
 
     while (keyNode != NULL) {
         if (strcmp(keyNode->key, key) == 0) {
@@ -51,19 +49,19 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
             snprintf(buffer, sizeof(buffer), "(%s,%s)", key, value);
 
             while(subNode != NULL){
+                printf("Starting to write to the notification FIFO about a key,value named %s\n", buffer);
                 if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
                     fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!");
                     return -1;
                 }
-                prevSub = subNode;
-                subNode = prevSub->next;
+                subNode = subNode->next;
             }
             return 0;
         }
-        previousNode = keyNode;
-        keyNode = previousNode->next; // Move to the next node
+        keyNode = keyNode->next; // Move to the next node
     }
     // Key not found, create a new key node
+    
     keyNode = malloc(sizeof(KeyNode));
     keyNode->key = strdup(key); // Allocate memory for the key
     keyNode->value = strdup(value); // Allocate memory for the value
@@ -183,35 +181,45 @@ int sub_key(HashTable *ht, const char * key, const char * client_id, int fd_noti
     int index = hash(key);
 
 	KeyNode *keyNode = ht->table[index];
-    // printf("Keynode stuff: key = %s, value = %s\n", keyNode->key, keyNode->value);
     KeyNode *previousNode;
     Subscribers *subNode;
-    Subscribers *previousSub;
-    printf("Subscribing client '%s' to key '%s'\n", client_id, key);
+
     while (keyNode != NULL) {
         printf("key: %s\n", keyNode->key);
         if (strcmp(keyNode->key, key) == 0) {
+            printf("Found key\n");
             subNode = keyNode->subs;
-            while (subNode != NULL) {
-                if (strcmp(subNode->subs, client_id) == 0) {
-                    break;
-                }
-                previousSub = subNode;
-                subNode = previousSub->next;
-                if(subNode == NULL){
-                    subNode = malloc(sizeof(subNode));
-                    subNode->subs = strdup(client_id);
-                    subNode->fd_notif = fd_notif;
-                    subNode->next = keyNode->subs;
-                    keyNode->subs = subNode;
-                }
+
+            if (subNode == NULL) {
+                printf("Subscribing client '%s' to key '%s'\n", client_id, key);
+                subNode = malloc(sizeof(subNode));
+                subNode->subs = strdup(client_id);
+                subNode->fd_notif = fd_notif;
+                subNode->next = keyNode->subs;
+                keyNode->subs = subNode;
+                return 1;
             }
+            
+            if (strcmp(subNode->subs, client_id) == 0) {
+                printf("Client already subscribed\n");
+                return 0;
+            }
+
+            while (subNode->next != NULL) {
+                subNode = subNode->next;
+            }
+
+            subNode = malloc(sizeof(subNode));
+            subNode->subs = strdup(client_id);
+            subNode->fd_notif = fd_notif;
+            subNode->next = keyNode->subs;
+            keyNode->subs = subNode;
             return 1;
         }
+        
         previousNode = keyNode;
         keyNode = previousNode->next;
     }
-
     return 0;
 }
 
@@ -250,8 +258,8 @@ int unsub_key(HashTable *ht, const char * key, const char * client_id){
 }
 
 int iniciar_subscricao(Client *client, const char* key){
+
     KeyNode *keyNode;
-    KeyNode *prevNode;
     keyNode = client->sub_keys;
     
     if (keyNode == NULL){
@@ -260,21 +268,19 @@ int iniciar_subscricao(Client *client, const char* key){
         strcpy(client->sub_keys->key, key); 
         return 0;
     }
-
-    while(keyNode != NULL){
-        if(strcmp(keyNode->key, key) == 0){
-            return 0;
+    while (keyNode->next != NULL){
+        if (strcmp(keyNode->key, key) == 0){
+            printf("Client already subscribed this key\n");
+        return 0;
         }
-        prevNode = keyNode;
-        keyNode = prevNode->next;
-        if (keyNode == NULL){
-            client->sub_keys = malloc(sizeof(KeyNode));
-            client->sub_keys->key = malloc(sizeof(char) * MAX_STRING_SIZE);
-            strcpy(prevNode->key, key);
-            return 0;
-        }
+        keyNode = keyNode->next;
     }
-    return 1;
+
+    keyNode->next = malloc(sizeof(KeyNode));
+    keyNode->next = malloc(sizeof(char) * MAX_STRING_SIZE);
+    strcpy(keyNode->key, key);
+
+    return 0;
 }
 
 int apagar_subscricao(KeyNode *sub_keys, const char* key){

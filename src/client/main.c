@@ -11,25 +11,24 @@
 #include "src/common/io.h"
 
 void* reads_notifs(void* arg){
+
   int *fd_notif = (int*) arg;
   int fd_notif_pipe = *fd_notif;
   char buffer[MAX_STRING_SIZE+1];
   int intr = 0;
+
   while(1){
+    printf("starting to read the notif fifo\n");
     if (read_all(fd_notif_pipe, buffer, sizeof(buffer), &intr) == -1) {
       if (intr){
         fprintf(stderr, "Reading from the notification FIFO was interrupted\n");
       } else {
         fprintf(stderr, "Failed to read from the notification FIFO");
       }
-
       return NULL;
     }
-
     printf("%s", buffer);
   }
-  
-
 }
 
 int main(int argc, char* argv[]) {

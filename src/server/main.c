@@ -187,8 +187,12 @@ void* run_client(void *args){
   int result;
   int intr = 0;
 
+  printf("Entrar no run client\n");
+
   memset(buffer, '\0', MAX_KEY_SIZE);
   while (1){
+
+    printf("Ler op\n");
     if (read_all(client->request_fd, op, 1, &intr) == -1) {
       if (intr){
         fprintf(stderr, "Reading from request FIFO was interrupted\n");
@@ -229,6 +233,7 @@ void* run_client(void *args){
         break;
 
       case OP_CODE_SUBSCRIBE:
+
         if (read_all(client->request_fd, buffer, MAX_KEY_SIZE, &intr) == -1) {
           if (intr){
             fprintf(stderr, "Reading from request FIFO was interrupted\n");
@@ -236,7 +241,7 @@ void* run_client(void *args){
             fprintf(stderr, "Failed to read from request FIFO\n");
           }
         }
-        printf("entrou no subscribe\n");
+        printf("começou a subscrição\n");
         result = subscribe(buffer, client->id, client->response_fd, client->notification_fd);
 
         if (result == 1){
@@ -244,6 +249,7 @@ void* run_client(void *args){
             fprintf(stderr, "Failed to iniciate subscription\n");
           }
         }
+
         break;
 
       case OP_CODE_UNSUBSCRIBE:

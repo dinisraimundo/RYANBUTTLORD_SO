@@ -177,15 +177,22 @@ int kvs_subscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
     return -1;
   }
 
-  // Same thing as doing &buffer[0]
-  op_code = atoi(buffer);
-  result = atoi(&buffer[1]);
+  char op_code_str[2];
+  char result_str[2];
+
+  op_code_str[0] = buffer[0];
+  op_code_str[1] = '\0'; 
+
+  // Copy the second character as the result
+  result_str[0] = buffer[1];
+  result_str[1] = '\0';
+  
+  op_code = atoi(op_code_str);
+  result = atoi(result_str);
 
   if(op_code != 3){
     fprintf(stderr, "Op_code errado no kvs_subscribe\n");
   }
-
-  printf("%d\n", fd_resp_pipe);
 
   printf("Server returned %d for operation: subscribe\n", result);
 
