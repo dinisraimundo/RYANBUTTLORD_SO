@@ -5,7 +5,7 @@ WRITE [(c2,caralho)]
 #Leitura de chave existente
 READ [chave2]
 #Escrita de uma chave nova e outra existente
-WAIT 12000
+WAIT 5000
 WRITE [(c1,chaveAleatoria)]
 WRITE [(c2,carambolas)]
 WAIT 10000
