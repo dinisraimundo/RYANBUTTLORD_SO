@@ -149,13 +149,13 @@ int kvs_disconnect(char const* req_pipe_path, char const* resp_pipe_path, char c
     }
 
     if (unlink(req_pipe_path) == -1) {
-        perror("Failed to unlink FIFO");
+        fprintf(stderr, "Failed to unlink FIFO");
     }
     if (unlink(resp_pipe_path) == -1) {
-        perror("Failed to unlink FIFO");
+        fprintf(stderr, "Failed to unlink FIFO");
     }
     if (unlink(notif_pipe_path) == -1) {
-        perror("Failed to unlink FIFO");
+        fprintf(stderr, "Failed to unlink FIFO");
     }
   }
   return 0;

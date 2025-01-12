@@ -17,7 +17,7 @@ void* reads_notifs(void* arg){
   char key_buffer[MAX_KEY_SIZE];
   char value_buffer[MAX_KEY_SIZE];
   int intr = 0;
-
+  
   while(1){
     if (read_all(fd_notif_pipe, key_buffer, sizeof(char)*MAX_KEY_SIZE, &intr) == -1) {
       if (intr){
@@ -76,6 +76,8 @@ int main(int argc, char* argv[]) {
   while (1) {
     switch (get_next(STDIN_FILENO)) {
       case CMD_DISCONNECT:
+        pthread_cancel(thread_id);
+        pthread_join(thread_id, NULL);
         if (kvs_disconnect(req_pipe_path, resp_pipe_path, notif_pipe_path, req_fifo, resp_fifo, notif_fifo) != 0) {
           fprintf(stderr, "Failed to disconnect to the server\n");
           return -1;

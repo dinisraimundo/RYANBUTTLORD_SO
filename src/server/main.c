@@ -205,9 +205,8 @@ void* run_client(void *args){
     switch(atoi(op)){
       case OP_CODE_CONNECT:
       case OP_CODE_DISCONNECT:
-        printf("We enter disconnect\n");
+
         result = disconnect(client);
-        // CHANGEME fiquei aqui
         if(result == 1){
           fprintf(stderr, "Failed to disconnect client\n");
         }
@@ -224,11 +223,11 @@ void* run_client(void *args){
         if (close(client->response_fd) == -1){
           fprintf(stderr, "Failed to close fifo\n");
         }
-
+      
         if (close(client->notification_fd) == -1){
           fprintf(stderr, "Failed to close fifo\n");
         }
-        printf("completely leave disconnect\n");
+        return NULL;
         break;
 
       case OP_CODE_SUBSCRIBE:
