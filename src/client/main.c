@@ -18,7 +18,6 @@ void* reads_notifs(void* arg){
   int intr = 0;
 
   while(1){
-    printf("starting to read the notif fifo\n");
     if (read_all(fd_notif_pipe, buffer, sizeof(buffer), &intr) == -1) {
       if (intr){
         fprintf(stderr, "Reading from the notification FIFO was interrupted\n");

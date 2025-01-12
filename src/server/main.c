@@ -102,7 +102,7 @@ static int run_job(int in_fd, int out_fd, char* filename) {
 
       case CMD_DELETE:
         num_pairs = parse_read_delete(in_fd, keys, MAX_WRITE_SIZE, MAX_STRING_SIZE);
-        printf("num_pairs: %ld\n", num_pairs);
+
         if (num_pairs == 0) {
           write_str(STDERR_FILENO, "Invalid command. See HELP for usage\n");
           continue;
@@ -173,34 +173,6 @@ static int run_job(int in_fd, int out_fd, char* filename) {
   }
 }
 
-void print_everything_at_key(char* key,HashTable *ht){
-    int index = hash(key);
-    printf("Dar print das subscrições por parte da hashtable\n");
-    KeyNode* node = ht->table[index];
-    while (node != NULL){
-      if (strcmp(node->key, key) == 0){
-        Subscribers* node_subscritores = node->subs;
-        while (node_subscritores != NULL){
-          printf("Id do cliente: %s , fd notif = %d, ativo = %d", node_subscritores->sub_clients, node_subscritores->fd_notif, node_subscritores->ativo);
-          node_subscritores = node_subscritores->next;
-        }
-      }
-      node = node->next;
-    }
-    Client* client = clients;
-    printf("Client ID: %s\n", client->id);
-    printf("Request FD: %d\n", client->request_fd);
-    printf("Response FD: %d\n", client->response_fd);
-    printf("Notification FD: %d\n", client->notification_fd);
-    printf("Active: %d\n", client->active);
-    Chaves_subscritas* chaves = client->sub_keys;
-    printf("Subscriçoes:\n");
-    while (chaves != NULL){
-      printf("chave = %s, active = %d\n", chaves->key, chaves->active);
-    }
-    printf("\n");
-}
-
 void* run_client(void *args){
 
   Client* client = (Client*) args;
@@ -215,10 +187,8 @@ void* run_client(void *args){
   int result;
   int intr = 0;
 
-  printf("Entrar no run client\n");
-
   memset(buffer, '\0', MAX_KEY_SIZE);
-  int count = 0;
+
   while (1){
     
     if (read_all(client->request_fd, op, 1, &intr) == -1) {
@@ -230,11 +200,7 @@ void* run_client(void *args){
       return NULL;
     }
     op[1] = '\0';
-    if (!count)
-    {printf("op: %s\n", op);
-    printf("client->request_fd: %d\n", client->request_fd);
-    }
-    count++;
+
 
     switch(atoi(op)){
       case OP_CODE_CONNECT:
@@ -276,7 +242,6 @@ void* run_client(void *args){
           }
         }
         
-        printf("começou a subscrição\n");
         result = subscribe(buffer, client->id, client->response_fd, client->notification_fd);
 
         if (result == 1){
@@ -284,11 +249,10 @@ void* run_client(void *args){
             fprintf(stderr, "Failed to iniciate subscription\n");
           }
         }
-
+        
         break;
 
       case OP_CODE_UNSUBSCRIBE:
-        printf("Inside opcode = unsubscribe\n");
         if (read_all(client->request_fd, buffer, MAX_KEY_SIZE, &intr) == -1) {
           if (intr){
             fprintf(stderr, "Reading from request FIFO was interrupted\n");
@@ -297,7 +261,7 @@ void* run_client(void *args){
           }
           return NULL;
         }
-        printf("Buffer = %s\n", buffer);
+        printf("Entering Unsubscribe\n");
         result = unsubscribe(buffer, client->id, client->response_fd);
 
         if (result == 0){
@@ -391,7 +355,6 @@ void* get_register(void* arg){
     return NULL;
   }
   char buffer[BUFFER_SIZE];
-  printf("register fifo = %s\n", register_fifo_name);
   if (mkfifo(register_fifo_name, 0666) == -1 && errno != EEXIST){
       fprintf(stderr, "Failed to create fifo\n");
       return NULL;

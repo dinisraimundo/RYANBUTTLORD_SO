@@ -212,26 +212,26 @@ void add_client(Client** head, Client* new_client) {
 
 void print_everything_at_key(const char* key,HashTable *ht){
     int index = hash(key);
-    printf("Dar print das subscrições por parte da hashtable\n");
+    printf("Dar print das subscrições na chave %s\n", key);
+    printf("----------------\n");
     KeyNode* node = ht->table[index];
     while (node != NULL){
       if (strcmp(node->key, key) == 0){
         Subscribers* node_subscritores = node->subs;
         while (node_subscritores != NULL){
-          printf("Id do cliente: %s , fd notif = %d, ativo = %d", node_subscritores->sub_clients, node_subscritores->fd_notif, node_subscritores->ativo);
+          
+          printf("Id do cliente: %s , fd notif = %d, ativo = %d\n", node_subscritores->sub_clients, node_subscritores->fd_notif, node_subscritores->ativo);
           node_subscritores = node_subscritores->next;
         }
       }
       node = node->next;
     }
+  printf("----------------\n");
 }
 
 int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe){
   int op_code = 3;
-  print_everything_at_key(key, kvs_table);
-  printf("Vamos para sub_key\n");
   int value = sub_key(kvs_table, key, client_id, fd_notif_pipe);
-  printf("Saimos do sub_key\n");
   char buffer[3];
 
   snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);
@@ -239,25 +239,26 @@ int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd
     fprintf(stderr, "Failed to write to the response FIFO while subscribing!");
     return -1;
   }
+  //print_everything_at_key(key, kvs_table);
   return value;
 }
 
 int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe){
-
+  //print_everything_at_key(key, kvs_table);
   int op_code = 4;
+  printf("Entering unsub_key\n");
   int value = unsub_key(kvs_table, key, client_id);
+  printf("Leaving unsub_key\n");
   char buffer[3];
   memset(buffer, '\0', sizeof(buffer));
-  printf("saimos do unsub key\n");
   snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);
-  printf("%s\n", buffer);
+
 
   if (write_all(fd_resp_pipe, buffer, sizeof(buffer)) == -1) {
     fprintf(stderr, "Failed to write to the response FIFO while unsubscribing");
     return -1;
   }
-  printf("Escreveu\n");
-
+  //print_everything_at_key(key, kvs_table);
   return value;
 }
 

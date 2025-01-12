@@ -15,9 +15,6 @@
 
 int kvs_connect(const char* req_pipe_path, char const* resp_pipe_path, char const* server_pipe_path,
                 char const* notif_pipe_path, int* notif_fifo, int* req_fifo, int* resp_fifo) {
-  
-
-
 
   // Create fifos
   int register_fifo;
@@ -94,10 +91,6 @@ int kvs_disconnect(char const* req_pipe_path, char const* resp_pipe_path, char c
 
   // Se não tivermos fechado os fds primeiro temos de os trazer para aqui e fachá-los para posteriormente dar unlink
   // close pipes and unlink pipe files
-  printf("Disconnecting the following pipes from the server: %s ; %s ; %s\n", req_pipe_path, resp_pipe_path, notif_pipe_path);
-  printf("Request FIFO descriptor: %d\n", fd_req_pipe);
-  printf("Response FIFO descriptor: %d\n", fd_resp_pipe);
-  printf("Notification FIFO descriptor: %d\n", fd_notif_pipe);
 
   int intr = 0;
 
@@ -116,13 +109,25 @@ int kvs_disconnect(char const* req_pipe_path, char const* resp_pipe_path, char c
     return -1;
   }
 
-  op_code = atoi(buffer);
-  result = atoi(&buffer[1]);
+  char op_code_str[2];
+  char result_str[2];
+
+  op_code_str[0] = buffer[0];
+  op_code_str[1] = '\0'; 
+
+  // Copy the second character as the result
+  result_str[0] = buffer[1];
+  result_str[1] = '\0';
+
+  op_code = atoi(op_code_str);
+  result = atoi(result_str);
 
   // CHANGEME - que isto
   if (op_code != 2){
     fprintf(stderr, "Op_code errado no kvs_subscribe\n");
   }
+
+  printf("Server returned %d for operation: subscribe\n", result);
 
   if (result == 0){
     // Close the request fifo
@@ -216,7 +221,6 @@ int kvs_unsubscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
     return -1;
   }
 
-  printf("Antes de ler do response\n");
   if (read_all(fd_resp_pipe, buffer, sizeof(char)*3, &intr) == -1) {
     if (intr){
       fprintf(stderr, "Reading from response FIFO was interrupted\n");  
@@ -227,9 +231,6 @@ int kvs_unsubscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
 
     return -1;
   }
-  printf("Depois de ler do response\n");
-
-  printf("Buffer: %s\n", buffer);
 
   char op_code_str[2];
   char result_str[2];
@@ -248,7 +249,6 @@ int kvs_unsubscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
     fprintf(stderr, "Op_code errado no kvs_unsubscribe\n");
   }
 
-  printf("%d\n", fd_resp_pipe);
   
   printf("Server returned %d for operation: unsubscribe\n", result);
 

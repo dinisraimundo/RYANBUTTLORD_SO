@@ -43,25 +43,19 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
     while (keyNode != NULL) {
         // WE found the key we are looking to replace
         if (strcmp(keyNode->key, key) == 0) {
-            printf("Dentro do write pair encontramos exatamente a nossa key\n");
             // overwrite value
             free(keyNode->value); // Overwrite value
             keyNode->value = strdup(value);
-            printf("!!!\n");
 
             // Se a fila de subscritores nao for nula
             // Ativo condicao
             if ((keyNode->subs != NULL) && (keyNode->subs->ativo == 1)){ // se entra aqui significa que não é nula, ou
-                printf("fila de subs nao nula\n");
-                printf("chave = %d\n", keyNode->subs->fd_notif);
-                
                 subNode = keyNode->subs;
                 snprintf(buffer, sizeof(buffer), "(%s,%s)", key, value);
 
                 // Percorremos a fila de subscritores
                 while(subNode != NULL){
                     if(subNode->ativo == 1){
-                        printf("Starting to write to the notification FIFO about a key,value named %s\n", buffer);
                         if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
                             fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!\n");
                             return -1;
@@ -141,10 +135,13 @@ int delete_pair(HashTable *ht, const char *key) {
                 snprintf(buffer, sizeof(buffer), "(%s,DELETED)", key);
                 
                 while(subNode != NULL){
-                    if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
-                        fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!");
-                        return -1;
+                    if(subNode->ativo == 1){
+                        if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
+                            fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!");
+                            return -1;
+                        }
                     }
+
                     prevSub = subNode;
                     subNode = prevSub->next;
                     free(prevSub->sub_clients);
@@ -198,7 +195,7 @@ int sub_key(HashTable *ht, const char * key, const char * client_id, int fd_noti
 	KeyNode *keyNode = ht->table[index];
     KeyNode *previousNode;
     Subscribers *subNode;
-    printf("Entrámos no sub_key\n");
+
     while (keyNode != NULL) {
         if (strcmp(keyNode->key, key) == 0) {
             subNode = keyNode->subs;
@@ -254,19 +251,17 @@ int unsub_key(HashTable *ht, const char * key, const char * client_id){
 
     while (keyNode != NULL) {
         if (strcmp(keyNode->key, key) == 0) { // Chave exata encontrada
-            printf("Encontrou a chave\n");
+            printf("Found key : %s\n", key);
             subNode = keyNode->subs; // Shortcut para subscribers
 
             if (subNode == NULL){
-                printf("Não existem clientes subscritos nesta chave\n");
                 return 0;
             }
-        
+
             while (subNode != NULL) { // Itero pela lista de subscribers
 
                 if (strcmp(subNode->sub_clients, client_id) == 0) { // Encontro o cliente nos subscribers
-                    printf("Encontrou o cliente\n");
-                    printf("%s\n", subNode->sub_clients);
+                    printf("Found client inside subscribers (id) = %s\n", client_id);
                     subNode->ativo = 0;
                 
                 }
@@ -281,42 +276,48 @@ int unsub_key(HashTable *ht, const char * key, const char * client_id){
     return 0; //A subscrição não existia
 }
 
-int iniciar_subscricao(Client *client, const char* key){
+int iniciar_subscricao(Client *client, const char* key) {
 
-    Chaves_subscritas *keyNode;
-    keyNode = client->sub_keys;
-    printf("ERRo\n");
-    if (keyNode == NULL){
-        client->sub_keys = malloc(sizeof(KeyNode));
+    printf("Iniciar subscricao\n");
+    Chaves_subscritas *keyNode = client->sub_keys;
+
+    if (keyNode == NULL) {
+        client->sub_keys = malloc(sizeof(Chaves_subscritas));
         client->sub_keys->key = malloc(sizeof(char) * MAX_STRING_SIZE);
         strcpy(client->sub_keys->key, key); 
         client->sub_keys->active = 1;
-        printf("afinal não\n");
+        client->sub_keys->next = NULL; 
         return 0;
     }
-    while (keyNode->next != NULL){
-        if (strcmp(keyNode->key, key) == 0){
-            client->sub_keys->active = 1;
-            printf("Afinal não\n");
+
+    while (keyNode != NULL) {
+
+        if (strcmp(keyNode->key, key) == 0) {
+            keyNode->active = 1; 
             return 0;
         }
+
+        if (keyNode->next == NULL) break;
         keyNode = keyNode->next;
     }
 
-    keyNode->next = malloc(sizeof(KeyNode));
-    keyNode->next = malloc(sizeof(char) * MAX_STRING_SIZE);
-    strcpy(keyNode->key, key);
-    client->sub_keys->active = 1;
-    printf("AFINal não\n");
+    keyNode->next = malloc(sizeof(Chaves_subscritas));
+    keyNode->next->key = malloc(sizeof(char) * MAX_STRING_SIZE);
+    strcpy(keyNode->next->key, key);
+    keyNode->next->active = 1;
+    keyNode->next->next = NULL;
+
     return 0;
 }
 
-int apagar_subscricao(Chaves_subscritas *sub_keys, const char* key){
-    Chaves_subscritas *keyNode;
 
+int apagar_subscricao(Chaves_subscritas *sub_keys, const char* key){
+
+    Chaves_subscritas *keyNode;
     keyNode = sub_keys;
 
     while(keyNode != NULL){
+        printf("chave subscrita : %s\n", keyNode->key);
         if(strcmp(keyNode->key, key) == 0){
             keyNode->active = 0;
             return 0;
