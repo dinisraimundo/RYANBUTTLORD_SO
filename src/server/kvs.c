@@ -45,18 +45,25 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
             // overwrite value
             free(keyNode->value);
             keyNode->value = strdup(value);
-            subNode = keyNode->subs;
-            snprintf(buffer, sizeof(buffer), "(%s,%s)", key, value);
+            printf("!!!\n");
+            if(keyNode->subs->subs != NULL){
+                printf("Não devia estar a entrar\n");
+                printf("Tem subscritores: %s\n", keyNode->subs->subs);
+                subNode = keyNode->subs;
+                snprintf(buffer, sizeof(buffer), "(%s,%s)", key, value);
 
-            while(subNode != NULL){
-                printf("sub: %s\n", subNode->subs);
-                printf("Starting to write to the notification FIFO about a key,value named %s\n", buffer);
-                if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
-                    fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!\n");
-                    return -1;
+                while(subNode != NULL){
+                    printf("Starting to write to the notification FIFO about a key,value named %s\n", buffer);
+                    if (write_all(subNode->fd_notif, buffer, sizeof(buffer)) == -1) {
+                        fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!\n");
+                        return -1;
+                    }
+                    subNode = subNode->next;
                 }
-                subNode = subNode->next;
             }
+            
+            printf("Não entrou\n");
+            
             return 0;
         }
         keyNode = keyNode->next; // Move to the next node
@@ -242,8 +249,8 @@ int unsub_key(HashTable *ht, const char * key, const char * client_id){
             while (subNode != NULL) { // Itero pela lista de subscribers
                 if (strcmp(subNode->subs, client_id) == 0) { // Encontro o cliente nos subscribers
                     printf("Encontrou o cliente\n");
-                    if (previousSub == NULL) { //Se só tiver um subscrito entra nesta
-                        if(subNode->next != NULL){
+                    if (previousSub == NULL) { // Se o inscrito for encontrado à primeira
+                        if(subNode->next != NULL){  // Se houver mais de um inscrito
                             keyNode->subs = subNode->next;
                         }
                         previousSub = subNode;
@@ -313,8 +320,12 @@ int apagar_subscricao(KeyNode *sub_keys, const char* key){
                 prevNode = keyNode;
                 keyNode = prevNode->next;
             }
+
             free(prevNode->key);
             free(prevNode->value);
+            printf("Antes dos subs->subs\n");
+            printf("Antes de só subs\n");
+            free(prevNode->subs);
             free(prevNode);
             printf("Supostamente apagou\n");
             return 0;
