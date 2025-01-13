@@ -265,6 +265,7 @@ void handle_client_commands(Client * client){
     op[1] = '\0';
     switch(atoi(op)){
       case OP_CODE_CONNECT:
+        fprintf(stderr, "Invalid operation\n");
         break;
       case OP_CODE_DISCONNECT:
         result = disconnect(client);
@@ -366,7 +367,6 @@ void handle_client_commands(Client * client){
         }
         break;
     }
-    print_buffer();
   }
   return;
 }

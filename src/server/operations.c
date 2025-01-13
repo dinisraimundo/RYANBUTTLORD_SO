@@ -261,7 +261,6 @@ int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe){
 }
 
 int disconnect(Client *client){
-
   Chaves_subscritas *keyNode;
   keyNode = client->sub_keys;
 

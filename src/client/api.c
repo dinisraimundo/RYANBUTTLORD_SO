@@ -89,7 +89,6 @@ int kvs_disconnect(char const* req_pipe_path, char const* resp_pipe_path, char c
   // close pipes and unlink pipe files
 
   int intr = 0;
-
   if (write_all(fd_req_pipe, buffer, sizeof(char)*1) == -1) {
     fprintf(stderr, "Failed to write to request FIFO\n");
     return -1;
