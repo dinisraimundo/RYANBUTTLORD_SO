@@ -137,11 +137,10 @@ int delete_pair(HashTable *ht, const char *key) {
                             fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!");
                             return -1;
                         }
+                        subNode->ativo = 0;
                     }
                     prevSub = subNode;
                     subNode = prevSub->next;
-                    free(prevSub->sub_clients);
-                    free(prevSub);
                 }
 
                 // Node to delete is the first node in the list
@@ -161,12 +160,11 @@ int delete_pair(HashTable *ht, const char *key) {
                             fprintf(stderr, "Failed to write to the notification FIFO about writing in subscription!");
                             return -1;
                         }
+                        subNode->ativo = 0;
                     }
 
                     prevSub = subNode;
                     subNode = prevSub->next;
-                    free(prevSub->sub_clients);
-                    free(prevSub);
                 }
                 // Node to delete is not the first; bypass it
                 prevNode->next = keyNode->next; // Link the previous node to the next node
