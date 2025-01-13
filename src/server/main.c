@@ -47,11 +47,19 @@ pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER; // Mutex for buffer op
 int buffer_index = 0; // Helps tracking
 
 
-void sigusr1_handler(int signo) {
-    if (signo == SIGUSR1) {
-      delete_subscriptions(clients);
-      session_count = 0;
+void sigusr1_handler(int sig) {
+  char buffer[MAX_KEY_SIZE] = "disconnect_sigma";
+  if(sig == SIGUSR1) {
+    delete_subscriptions(clients);
+    if (write_all(clients->response_fd, buffer, MAX_KEY_SIZE) == -1) {
+      fprintf(stderr, "Failed to write to the response FIFO\n");
+      return;
     }
+    close(clients->notification_fd);
+    close(clients->response_fd);
+    session_count = 0;
+  }
+
 }
 
 void initialize_buffer() {
@@ -531,6 +539,12 @@ void* get_register(void* arg){
   
   while (1){
     int fd = open(register_fifo_name, O_RDONLY);
+
+    while ((errno == EINTR) && (fd == -1)){
+      errno = 0;
+      fd = open(register_fifo_name, O_RDONLY);
+    }
+    
     if (fd == -1){
       fprintf(stderr, "Failed to open register fifo\n");
       return NULL;

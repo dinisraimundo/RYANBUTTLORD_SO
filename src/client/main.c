@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include "parser.h"
 #include "src/client/api.h"
@@ -27,6 +28,11 @@ void* reads_notifs(void* arg){
       }
       return NULL;
     }
+
+    if(strcmp(key_buffer, "disconnect_sigma") == 0){
+      kill(getpid(), SIGKILL);
+    }
+
     if (read_all(fd_notif_pipe, value_buffer, sizeof(char)*MAX_KEY_SIZE, &intr) == -1) {
       if (intr){
         fprintf(stderr, "Reading from the notification FIFO was interrupted\n");
@@ -35,6 +41,7 @@ void* reads_notifs(void* arg){
       }
       return NULL;
     }
+
     printf("(%s,%s)\n", key_buffer, value_buffer);
   }
   return NULL;
