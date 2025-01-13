@@ -251,7 +251,7 @@ void handle_client_commands(Client * client){
   // Basicamente meti um loop infinito no registration fifo e sempre que lia informacao sobre um cliente crio logo numa thread esta funcao
   // nao tenho a certeza que funciona mas agora conseguimos fazer isto
 
-  char op[2]; 
+  char op[1]; 
   char buffer[MAX_KEY_SIZE];
   int result;
   int intr = 0;
@@ -259,7 +259,7 @@ void handle_client_commands(Client * client){
   memset(buffer, '\0', MAX_KEY_SIZE);
 
   while (1){
-    
+    printf("request fd = %d\n", client->request_fd);
     if (read_all(client->request_fd, op, 1, &intr) == -1) {
       if (intr){
         fprintf(stderr, "Reading from request FIFO was interrupted\n");
@@ -268,6 +268,7 @@ void handle_client_commands(Client * client){
       }
       return;
     }
+    printf("depois do read\n");
     op[1] = '\0';
     switch(atoi(op)){
       case OP_CODE_CONNECT:

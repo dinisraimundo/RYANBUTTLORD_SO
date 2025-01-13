@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
       case CMD_DISCONNECT:
         pthread_cancel(thread_id);
         pthread_join(thread_id, NULL);
-        
+        // debug this bs
         if (kvs_disconnect(req_pipe_path, resp_pipe_path, notif_pipe_path, req_fifo, resp_fifo, notif_fifo) != 0) {
           fprintf(stderr, "Failed to disconnect to the server\n");
           return -1;
