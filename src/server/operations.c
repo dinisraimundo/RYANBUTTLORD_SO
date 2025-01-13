@@ -210,25 +210,6 @@ void add_client(Client** head, Client* new_client) {
     }
 }
 
-void print_everything_at_key(const char* key,HashTable *ht){
-    int index = hash(key);
-    printf("Dar print das subscrições na chave %s\n", key);
-    printf("----------------\n");
-    KeyNode* node = ht->table[index];
-    while (node != NULL){
-      if (strcmp(node->key, key) == 0){
-        Subscribers* node_subscritores = node->subs;
-        while (node_subscritores != NULL){
-          
-          printf("Id do cliente: %s , fd notif = %d, ativo = %d\n", node_subscritores->sub_clients, node_subscritores->fd_notif, node_subscritores->ativo);
-          node_subscritores = node_subscritores->next;
-        }
-      }
-      node = node->next;
-    }
-  printf("----------------\n");
-}
-
 int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd_notif_pipe){
   int op_code = 3;
   int value = sub_key(kvs_table, key, client_id, fd_notif_pipe);

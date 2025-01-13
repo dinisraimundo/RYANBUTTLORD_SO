@@ -39,6 +39,7 @@ char* jobs_directory = NULL;        // Jobs directory
 Client *clients;                   // Array of clients                    
 int session_count = 0;            // Number of active sessions           
 
+
 // New stuff
 Buffer shared_buffer = {.consptr = 0, .prodptr = 0}; // Data structure buffer that host sends to a client 
 sem_t semPodeProd; // Tracks empty slots in the buffer
@@ -48,23 +49,22 @@ int buffer_index = 0; // Helps tracking
 
 
 void sigusr1_handler(int sig) {
-  if (sig == 123123){
-    printf("carr");
-  }
-  printf("inside handler\n");
+
+
   char buffer[MAX_KEY_SIZE];
   strcpy(buffer, "disconnect_sigma");
   
   if(sig == SIGUSR1) {
-    printf("sig == sigusrt1 confirmed\n");
     delete_subscriptions(clients);
     while (clients != NULL){
-      if (write_all(clients->notification_fd, buffer, MAX_KEY_SIZE) == -1) {
-        fprintf(stderr, "Failed to write to the response FIFO\n");
-        return;
+      if (clients->notification_fd != 0){
+        if (write_all(clients->notification_fd, buffer, MAX_KEY_SIZE) == -1) {
+          fprintf(stderr, "Failed to write to the response FIFO\n");
+          return;
+        }
+        close(clients->notification_fd);
+        close(clients->response_fd);
       }
-      close(clients->notification_fd);
-      close(clients->response_fd);
       clients = clients->next;
     }
     session_count = 0;
@@ -217,34 +217,6 @@ static int run_job(int in_fd, int out_fd, char* filename) {
   }
 }
 
-void print_clients() {
-  Client* current = clients;
-  while (current != NULL) {
-    if (current->active == 1){
-      printf("Client ID: %s\n", current->id);
-      printf("Request FD: %d\n", current->request_fd);
-      printf("Response FD: %d\n", current->response_fd);
-      printf("Notification FD: %d\n", current->notification_fd);
-      printf("Active: %d\n", current->active);
-      printf("-------------\n");
-    }
-    current = current->next;
-
-  }
-}
-
-void print_buffer(){
-    printf("Clientes no shared buffer:\n");
-    printf("---------------\n");
-    printf("contador = %d\n",shared_buffer.count );
-  for (int i = 0; i < shared_buffer.count; i++) {
-    Client* c = shared_buffer.clients[i];
-    printf("Client ID: %s\n", c->id);
-    printf("Client FIFOS: %d %d %d, active = %d\n", c->notification_fd, c->request_fd, c->response_fd, c->active);
-    printf("/\n");
-  } 
-  printf("--------------\n");
-}
 
 void handle_client_commands(Client * client){
 
@@ -258,11 +230,10 @@ void handle_client_commands(Client * client){
   char buffer[MAX_KEY_SIZE];
   int result;
   int intr = 0;
-
+  int killed = 0;
   memset(buffer, '\0', MAX_KEY_SIZE);
+  while (!killed){
 
-  while (1){
-    // para o kill adicionar um caracter especial para depois dar so disconenct sem mandar de volta para as pipes alguma coisa
     if (read_all(client->request_fd, op, 1, &intr) == -1) {
       if (intr){
         fprintf(stderr, "Reading from request FIFO was interrupted\n");
@@ -271,13 +242,16 @@ void handle_client_commands(Client * client){
       }
       return;
     }
-    printf("1");
     op[1] = '\0';
     switch(atoi(op)){
+      case 9: // Caso especifico para quando der kill com o signal
+        killed = 1;
+        break;
       case OP_CODE_CONNECT:
         fprintf(stderr, "Invalid operation\n");
         break;
       case OP_CODE_DISCONNECT:
+
         result = disconnect(client);
         if(result == 1){
           fprintf(stderr, "Failed to disconnect client\n");
@@ -299,43 +273,6 @@ void handle_client_commands(Client * client){
         if (close(client->notification_fd) == -1){
           fprintf(stderr, "Failed to close fifo\n");
         }
-            //pthread_mutex_lock(&buffer_mutex);
-        /*
-        int found = 0;  // Flag to indicate if the client was found
-        for (int i = 0; i < MAX_SESSION_COUNT; i++) {
-            int index = (shared_buffer.out + i) % MAX_SESSION_COUNT;
-
-            if (shared_buffer.clients[index] == client_to_disconnect) {
-                printf("Disconnecting client with ID: %s\n", client_to_disconnect->id);
-
-                // Free the client memory
-                free(shared_buffer.clients[index]);
-
-                // Mark the slot as NULL
-                shared_buffer.clients[index] = NULL;
-
-                // Shift clients to maintain buffer order
-                for (int j = index; j != shared_buffer.in; j = (j + 1) % MAX_SESSION_COUNT) {
-                    int next = (j + 1) % MAX_SESSION_COUNT;
-                    shared_buffer.clients[j] = shared_buffer.clients[next];
-                }
-
-                // Update the `in` pointer (move it back)
-                shared_buffer.in = (shared_buffer.in - 1 + MAX_SESSION_COUNT) % MAX_SESSION_COUNT;
-
-                // Signal that an empty slot is available
-                sem_post(&sem_empty);
-
-                found = 1;
-                break;
-            }
-        }
-        if (!found) {
-          fprintf(stderr, "Error: Client not found in the buffer.\n");
-        }
-
-        pthread_mutex_unlock(&buffer_mutex);
-*/
         return;
         break;
 
@@ -378,6 +315,7 @@ void handle_client_commands(Client * client){
         break;
     }
   }
+  killed = 0;
   return;
 }
 
@@ -531,12 +469,10 @@ void* get_register(void* arg){
     return NULL;
   }
   char buffer[BUFFER_SIZE];
-  printf("before sig handler\n");
   struct sigaction sa;
   sa.sa_handler = &sigusr1_handler;
   sigaction(SIGUSR1, &sa, NULL);
-  printf("after sig handler\n");
-  // here
+
   if (mkfifo(register_fifo_name, 0666) == -1 && errno != EEXIST){
       fprintf(stderr, "Failed to create fifo\n");
       return NULL;

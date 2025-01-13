@@ -167,7 +167,7 @@ int kvs_subscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
   int intr = 0;
 
   if (write_all(fd_req_pipe, buffer, sizeof(buffer)) == -1) {
-    perror("Failed to write to request FIFO");
+    fprintf(stderr, "Failed to write to request FIFO");
     return -1;
   }
   
@@ -212,7 +212,7 @@ int kvs_unsubscribe(const char* key, int fd_req_pipe, int fd_resp_pipe) {
   int intr = 0;
   
   if (write_all(fd_req_pipe, buffer, sizeof(buffer)) == -1) {
-    perror("Failed to write to request FIFO");
+    fprintf(stderr, "Failed to write to request FIFO");
     return -1;
   }
 

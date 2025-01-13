@@ -30,15 +30,13 @@ void* reads_notifs(void* arg){
       }
       return NULL;
     }
-    printf("buffer = %s\n", key_buffer);
     if(strcmp(key_buffer, "disconnect_sigma") == 0){
-      printf("req fifo = %d, resp_fifo = %d, notif_fifo = %d\n",req_fifo, resp_fifo, notif_fifo);
 
-      if (write_all(req_fifo, "2", 1) == -1){
+      if (write_all(req_fifo, "9", 1) == -1){
         fprintf(stderr, "Failed to write to fifo\n");
         return NULL;
       }
-      kill(getpid(), SIGINT);
+      kill(getpid(), SIGKILL);
     }
 
     if (read_all(fd_notif_pipe, value_buffer, sizeof(char)*MAX_KEY_SIZE, &intr) == -1) {
