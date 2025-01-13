@@ -356,6 +356,7 @@ int remove_subs(HashTable *ht, const char *client_id, const char *key){
                     subNode->ativo = 0;
                     break;
                 }
+                subNode = subNode->next;
             }
             return 0;
         }
