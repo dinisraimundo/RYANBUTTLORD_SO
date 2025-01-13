@@ -256,7 +256,7 @@ int sub_key(HashTable *ht, const char * key, const char * client_id, int fd_noti
         keyNode = previousNode->next;
     }
     
-    return 1;
+    return 0;
 }
 
 // Ponto disto é: Ir ao index da hashtable e encontrar a subscricao do cliente dentro dos subscribers e apagar
