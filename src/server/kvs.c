@@ -212,7 +212,6 @@ int sub_key(HashTable *ht, const char * key, const char * client_id, int fd_noti
     int index = hash(key);
     
 	KeyNode *keyNode = ht->table[index];
-    KeyNode *previousNode;
     Subscribers *subNode;
 
     while (keyNode != NULL) {
@@ -251,9 +250,7 @@ int sub_key(HashTable *ht, const char * key, const char * client_id, int fd_noti
             
             return 1;
         }
-        
-        previousNode = keyNode;
-        keyNode = previousNode->next;
+        keyNode = keyNode->next;
     }
     
     return 0;
