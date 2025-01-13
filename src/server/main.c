@@ -48,15 +48,21 @@ int buffer_index = 0; // Helps tracking
 
 
 void sigusr1_handler(int sig) {
-  char buffer[MAX_KEY_SIZE] = "disconnect_sigma";
+  printf("inside handler\n");
+  char buffer[MAX_KEY_SIZE];
+  strcpy(buffer, "disconnect_sigma");
   if(sig == SIGUSR1) {
+    printf("sig == sigusrt1 confirmed\n");
     delete_subscriptions(clients);
-    if (write_all(clients->response_fd, buffer, MAX_KEY_SIZE) == -1) {
-      fprintf(stderr, "Failed to write to the response FIFO\n");
-      return;
+    while (clients != NULL){
+      if (write_all(clients->notification_fd, buffer, MAX_KEY_SIZE) == -1) {
+        fprintf(stderr, "Failed to write to the response FIFO\n");
+        return;
+      }
+      close(clients->notification_fd);
+      close(clients->response_fd);
+      clients = clients->next;
     }
-    close(clients->notification_fd);
-    close(clients->response_fd);
     session_count = 0;
   }
 
@@ -522,16 +528,12 @@ void* get_register(void* arg){
     return NULL;
   }
   char buffer[BUFFER_SIZE];
-  sigset_t sigset;
-
-  sigemptyset(&sigset);
-  sigaddset(&sigset, SIGUSR1);
-
-  if (pthread_sigmask(SIG_BLOCK, &sigset, NULL) != 0) {
-      fprintf(stderr, "Error blocking the SIGUSR1 signal\n");
-      pthread_exit(NULL);
-  }
-
+  printf("before sig handler\n");
+  struct sigaction sa;
+  sa.sa_handler = &sigusr1_handler;
+  sigaction(SIGUSR1, &sa, NULL);
+  printf("after sig handler\n");
+  // here
   if (mkfifo(register_fifo_name, 0666) == -1 && errno != EEXIST){
       fprintf(stderr, "Failed to create fifo\n");
       return NULL;
@@ -623,11 +625,7 @@ void* get_register(void* arg){
     sem_post(&semPodeCons); // Client is ready 
 
     close(fd);
-    
-    if (pthread_sigmask(SIG_UNBLOCK, &sigset, NULL) != 0) {
-      fprintf(stderr, "Error blocking the SIGUSR1 signal\n");
-      pthread_exit(NULL);
-    }
+  
   }
 
   return NULL;
@@ -707,10 +705,6 @@ int main(int argc, char** argv) {
   }
   
   clients = malloc(MAX_SESSION_COUNT * sizeof(Client));
-  struct sigaction sa;
-  sa.sa_handler = &sigusr1_handler;
-  sigaction(SIGUSR1, &sa, NULL);
-  //signal(SIGUSR1, &sigusr1_handler);
 
   jobs_directory = argv[1];
   strcat(register_fifo_name, argv[4]);
