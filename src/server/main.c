@@ -48,9 +48,13 @@ int buffer_index = 0; // Helps tracking
 
 
 void sigusr1_handler(int sig) {
+  if (sig == 123123){
+    printf("carr");
+  }
   printf("inside handler\n");
   char buffer[MAX_KEY_SIZE];
   strcpy(buffer, "disconnect_sigma");
+  
   if(sig == SIGUSR1) {
     printf("sig == sigusrt1 confirmed\n");
     delete_subscriptions(clients);
@@ -65,7 +69,6 @@ void sigusr1_handler(int sig) {
     }
     session_count = 0;
   }
-
 }
 
 void initialize_buffer() {
@@ -259,7 +262,7 @@ void handle_client_commands(Client * client){
   memset(buffer, '\0', MAX_KEY_SIZE);
 
   while (1){
-    printf("request fd = %d\n", client->request_fd);
+    // para o kill adicionar um caracter especial para depois dar so disconenct sem mandar de volta para as pipes alguma coisa
     if (read_all(client->request_fd, op, 1, &intr) == -1) {
       if (intr){
         fprintf(stderr, "Reading from request FIFO was interrupted\n");
@@ -268,7 +271,7 @@ void handle_client_commands(Client * client){
       }
       return;
     }
-    printf("depois do read\n");
+    printf("1");
     op[1] = '\0';
     switch(atoi(op)){
       case OP_CODE_CONNECT:
@@ -416,7 +419,6 @@ void* run_client(void* args) {
 
 
         // Process the client outside the critical section
-        handle_client_commands(current_client);
         // Process the client's request (this could be handling commands or something else)
         handle_client_commands(current_client);
 

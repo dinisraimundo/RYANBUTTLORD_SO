@@ -11,6 +11,8 @@
 #include "src/common/constants.h"
 #include "src/common/io.h"
 
+int notif_fifo, req_fifo, resp_fifo; 
+
 void* reads_notifs(void* arg){
 
   int *fd_notif = (int*) arg;
@@ -30,7 +32,13 @@ void* reads_notifs(void* arg){
     }
     printf("buffer = %s\n", key_buffer);
     if(strcmp(key_buffer, "disconnect_sigma") == 0){
-      kill(getpid(), SIGKILL);
+      printf("req fifo = %d, resp_fifo = %d, notif_fifo = %d\n",req_fifo, resp_fifo, notif_fifo);
+
+      if (write_all(req_fifo, "2", 1) == -1){
+        fprintf(stderr, "Failed to write to fifo\n");
+        return NULL;
+      }
+      kill(getpid(), SIGINT);
     }
 
     if (read_all(fd_notif_pipe, value_buffer, sizeof(char)*MAX_KEY_SIZE, &intr) == -1) {
@@ -47,6 +55,7 @@ void* reads_notifs(void* arg){
   return NULL;
 }
 
+
 int main(int argc, char* argv[]) {
   if (argc < 3) {
     fprintf(stderr, "Usage: %s <client_unique_id> <register_pipe_path>\n", argv[0]);
@@ -54,7 +63,6 @@ int main(int argc, char* argv[]) {
   }
   
   pthread_t thread_id;
-  int notif_fifo, req_fifo, resp_fifo; 
   char req_pipe_path[256] = "/tmp/req";
   char resp_pipe_path[256] = "/tmp/resp";
   char notif_pipe_path[256] = "/tmp/notif";
