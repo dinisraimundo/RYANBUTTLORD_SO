@@ -73,5 +73,6 @@ void set_n_current_backups(int _n_current_backups);
 // Getter for n_current_backups
 // @return n_current_backups
 int get_n_current_backups();
+int delete_subscriptions(Client *client);
 
 #endif  // KVS_OPERATIONS_H
