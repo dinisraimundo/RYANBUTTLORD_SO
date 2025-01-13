@@ -270,7 +270,6 @@ int unsub_key(HashTable *ht, const char * key, const char * client_id){
 
     while (keyNode != NULL) {
         if (strcmp(keyNode->key, key) == 0) { // Chave exata encontrada
-            printf("Found key : %s\n", key);
             subNode = keyNode->subs; // Shortcut para subscribers
 
             if (subNode == NULL){
@@ -280,7 +279,6 @@ int unsub_key(HashTable *ht, const char * key, const char * client_id){
             while (subNode != NULL) { // Itero pela lista de subscribers
 
                 if (strcmp(subNode->sub_clients, client_id) == 0) { // Encontro o cliente nos subscribers
-                    printf("Found client inside subscribers (id) = %s\n", client_id);
                     subNode->ativo = 0;
                 
                 }
@@ -297,7 +295,6 @@ int unsub_key(HashTable *ht, const char * key, const char * client_id){
 
 int iniciar_subscricao(Client *client, const char* key) {
 
-    printf("Iniciar subscricao\n");
     Chaves_subscritas *keyNode = client->sub_keys;
 
     if (keyNode == NULL) {

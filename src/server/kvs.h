@@ -45,8 +45,9 @@ typedef struct HashTable {
 
 typedef struct {
     Client* clients[MAX_SESSION_COUNT];
-    int in; // Buffer insertion index
-    int out; // Buffer extraction index
+    int prodptr; // Buffer insertion index
+    int consptr; // Buffer extraction index
+    int count;
 } Buffer;
 
 /// Creates a new KVS hash table.

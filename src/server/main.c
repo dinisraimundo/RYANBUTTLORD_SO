@@ -40,11 +40,12 @@ Client *clients;                   // Array of clients
 int session_count = 0;            // Number of active sessions           
 
 // New stuff
-Buffer shared_buffer = {.in = 0, .out = 0}; // Data structure buffer that host sends to a client 
-sem_t sem_empty; // Tracks empty slots in the buffer
-sem_t sem_count; // Tracks filled slots in the buffer
+Buffer shared_buffer = {.consptr = 0, .prodptr = 0}; // Data structure buffer that host sends to a client 
+sem_t semPodeProd; // Tracks empty slots in the buffer
+sem_t semPodeCons; // Tracks filled slots in the buffer
 pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER; // Mutex for buffer operations
 int buffer_index = 0; // Helps tracking
+
 
 void sigusr1_handler(int signo) {
     if (signo == SIGUSR1) {
@@ -54,8 +55,11 @@ void sigusr1_handler(int signo) {
 }
 
 void initialize_buffer() {
-    sem_init(&sem_empty, 0, MAX_SESSION_COUNT);  // Buffer starts empty
-    sem_init(&sem_count, 0, 0);            // No sessions to process initially
+    sem_init(&semPodeProd, 0, MAX_SESSION_COUNT);  // Buffer starts empty
+    sem_init(&semPodeCons, 0, 0);            // No sessions to process initially
+    for (int i = 0; i < MAX_SESSION_COUNT; i++) {
+      shared_buffer.clients[i] = NULL;
+    }
     pthread_mutex_init(&buffer_mutex, NULL); // Mutex for buffer access
 }
 
@@ -196,6 +200,35 @@ static int run_job(int in_fd, int out_fd, char* filename) {
   }
 }
 
+void print_clients() {
+  Client* current = clients;
+  while (current != NULL) {
+    if (current->active == 1){
+      printf("Client ID: %s\n", current->id);
+      printf("Request FD: %d\n", current->request_fd);
+      printf("Response FD: %d\n", current->response_fd);
+      printf("Notification FD: %d\n", current->notification_fd);
+      printf("Active: %d\n", current->active);
+      printf("-------------\n");
+    }
+    current = current->next;
+
+  }
+}
+
+void print_buffer(){
+    printf("Clientes no shared buffer:\n");
+    printf("---------------\n");
+    printf("contador = %d\n",shared_buffer.count );
+  for (int i = 0; i < shared_buffer.count; i++) {
+    Client* c = shared_buffer.clients[i];
+    printf("Client ID: %s\n", c->id);
+    printf("Client FIFOS: %d %d %d, active = %d\n", c->notification_fd, c->request_fd, c->response_fd, c->active);
+    printf("/\n");
+  } 
+  printf("--------------\n");
+}
+
 void handle_client_commands(Client * client){
 
   client->active = 1;
@@ -209,10 +242,11 @@ void handle_client_commands(Client * client){
   int result;
   int intr = 0;
 
-  while (1){
-    memset(buffer, '\0', MAX_KEY_SIZE);
+  memset(buffer, '\0', MAX_KEY_SIZE);
 
-    if (read_all(client->request_fd, op, sizeof(char)*1, &intr) == -1) {
+  while (1){
+    
+    if (read_all(client->request_fd, op, 1, &intr) == -1) {
       if (intr){
         fprintf(stderr, "Reading from request FIFO was interrupted\n");
       } else {
@@ -221,27 +255,20 @@ void handle_client_commands(Client * client){
       return;
     }
     op[1] = '\0';
-
-
     switch(atoi(op)){
       case OP_CODE_CONNECT:
         break;
-        
       case OP_CODE_DISCONNECT:
-        printf("entrou disconnect\n");
         result = disconnect(client);
         if(result == 1){
           fprintf(stderr, "Failed to disconnect client\n");
         }
         snprintf(buffer, MAX_KEY_SIZE, "%s%d", op, result);
-        printf("before write all\n");
-        printf("key = %s\n", client->id);
-        printf("response fd = %d\n", client->response_fd);
         if (write_all(client->response_fd, buffer, MAX_KEY_SIZE) == -1) {
           fprintf(stderr, "Failed to write to the response FIFO\n");
           return;
         }
-        printf("after write all before close req\n");
+
         if (close(client->request_fd) == -1){
           fprintf(stderr, "Failed to close fifo\n");
         }
@@ -253,13 +280,43 @@ void handle_client_commands(Client * client){
         if (close(client->notification_fd) == -1){
           fprintf(stderr, "Failed to close fifo\n");
         }
-        printf("before disconnect\n");
-        pthread_mutex_lock(&buffer_mutex);
-        shared_buffer.clients[shared_buffer.out] = NULL;
-        shared_buffer.out = (shared_buffer.out + 1) % MAX_SESSION_COUNT;
-        sem_post(&sem_empty);
+            //pthread_mutex_lock(&buffer_mutex);
+        /*
+        int found = 0;  // Flag to indicate if the client was found
+        for (int i = 0; i < MAX_SESSION_COUNT; i++) {
+            int index = (shared_buffer.out + i) % MAX_SESSION_COUNT;
+
+            if (shared_buffer.clients[index] == client_to_disconnect) {
+                printf("Disconnecting client with ID: %s\n", client_to_disconnect->id);
+
+                // Free the client memory
+                free(shared_buffer.clients[index]);
+
+                // Mark the slot as NULL
+                shared_buffer.clients[index] = NULL;
+
+                // Shift clients to maintain buffer order
+                for (int j = index; j != shared_buffer.in; j = (j + 1) % MAX_SESSION_COUNT) {
+                    int next = (j + 1) % MAX_SESSION_COUNT;
+                    shared_buffer.clients[j] = shared_buffer.clients[next];
+                }
+
+                // Update the `in` pointer (move it back)
+                shared_buffer.in = (shared_buffer.in - 1 + MAX_SESSION_COUNT) % MAX_SESSION_COUNT;
+
+                // Signal that an empty slot is available
+                sem_post(&sem_empty);
+
+                found = 1;
+                break;
+            }
+        }
+        if (!found) {
+          fprintf(stderr, "Error: Client not found in the buffer.\n");
+        }
+
         pthread_mutex_unlock(&buffer_mutex);
-        printf("after disconnect\n");
+*/
         return;
         break;
 
@@ -301,18 +358,17 @@ void handle_client_commands(Client * client){
         }
         break;
     }
+    print_buffer();
   }
   return;
 }
 
 
-// NULL arguments
-void* run_client(void *args){
-
-  if (args != NULL){
-    fprintf(stderr, "Invalid arguments\n");
-    return NULL;
-  }
+void* run_client(void* args) {
+    if (args != NULL) {
+        fprintf(stderr, "Invalid arguments passed to thread.\n");
+        return NULL;
+    }
 
   sigset_t sigset;
 
@@ -323,39 +379,42 @@ void* run_client(void *args){
       fprintf(stderr, "Error blocking the SIGUSR1 signal\n");
       pthread_exit(NULL);
   }
+   while (1) {
+      sem_wait(&semPodeCons);  // Wait until a client is available
+      pthread_mutex_lock(&buffer_mutex);
 
-  while (1) {
-    sem_wait(&sem_count);  // Wait until there's a client to process
-    pthread_mutex_lock(&buffer_mutex);
+        // Access the client at the `out` index
+        Client* current_client = shared_buffer.clients[shared_buffer.consptr];
 
-    // Find a client in the buffer to process
-    if (buffer_index > 0) {
-        Client* current_client = shared_buffer.clients[0];  // Take the first client in the buffer
-
-        // Shift remaining clients in the buffer
-        for (int i = 0; i < buffer_index - 1; i++) {
-            shared_buffer.clients[i] = shared_buffer.clients[i + 1];
+        if (current_client == NULL) {
+            fprintf(stderr, "Error: NULL client at index %d\n", shared_buffer.consptr);
+            pthread_mutex_unlock(&buffer_mutex);
+            sem_post(&semPodeProd);  // Mark slot as empty
+            continue;              // Skip processing and retry
         }
-        buffer_index--;  // Decrement the buffer index
+
+        shared_buffer.consptr = (shared_buffer.consptr+1) % MAX_SESSION_COUNT;
 
         pthread_mutex_unlock(&buffer_mutex);
-        sem_post(&sem_empty);  // Signal that there is now an empty slot in the buffer
 
+        sem_post(&semPodeProd);
+
+
+        // Process the client outside the critical section
+        handle_client_commands(current_client);
         // Process the client's request (this could be handling commands or something else)
         handle_client_commands(current_client);
 
         // Free the client memory after processing
         free(current_client);
-    } else {
-        pthread_mutex_unlock(&buffer_mutex);
     }
-  }
-
-  if (pthread_sigmask(SIG_UNBLOCK, &sigset, NULL) != 0) {
-    fprintf(stderr, "Error blocking the SIGUSR1 signal\n");
-    pthread_exit(NULL);
-  }
+    if (pthread_sigmask(SIG_UNBLOCK, &sigset, NULL) != 0) {
+      fprintf(stderr, "Error blocking the SIGUSR1 signal\n");
+      pthread_exit(NULL);
+    }
 }
+
+
 
 
 //frees arguments
@@ -438,6 +497,8 @@ static void* get_file(void* arguments) {
 
   pthread_exit(NULL);
 }
+
+
 
 // Function to be executed by the host thread
 /*
@@ -533,19 +594,19 @@ void* get_register(void* arg){
     strcpy(client->id, token);
 
     add_client(&clients, client);
-
-    sem_wait(&sem_empty);  // Wait for an empty slot in the buffer
+  	
+    // Waits until writing to the buffer is available
+    sem_wait(&semPodeProd); 
     pthread_mutex_lock(&buffer_mutex);
 
     // Add client to the buffer
-    if (buffer_index < MAX_SESSION_COUNT) {
-        shared_buffer.clients[buffer_index++] = client;
-    } else {
-        fprintf(stderr, "Buffer is full\n");
-    }
+
+    shared_buffer.clients[shared_buffer.prodptr] = client;
+
+    shared_buffer.prodptr = (shared_buffer.prodptr+1) % MAX_SESSION_COUNT;
 
     pthread_mutex_unlock(&buffer_mutex);
-    sem_post(&sem_count); // Client is ready
+    sem_post(&semPodeCons); // Client is ready 
 
     close(fd);
     
