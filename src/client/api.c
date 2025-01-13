@@ -19,6 +19,12 @@ int kvs_connect(const char* req_pipe_path, char const* resp_pipe_path, char cons
   // Create fifos
   int register_fifo;
 
+   // Open the register fifo
+  if ((register_fifo = open(server_pipe_path, O_WRONLY)) == -1){
+    fprintf(stderr, "Failed to open register FIFO\n");
+    return -2;
+  }
+
   // Create the request fifo
   if (mkfifo(req_pipe_path, 0666) == -1){
     fprintf(stderr, "Failed to create fifo\n");
@@ -34,13 +40,6 @@ int kvs_connect(const char* req_pipe_path, char const* resp_pipe_path, char cons
   // Create the notification fifo
   if (mkfifo(notif_pipe_path, 0666) == -1){
     fprintf(stderr, "Failed to create fifo\n");
-    return -1;
-  }
- 
- 
-  // Open the register fifo
-  if ((register_fifo = open(server_pipe_path, O_WRONLY)) == -1){
-    fprintf(stderr, "Failed to open register FIFO\n");
     return -1;
   }
 
@@ -75,8 +74,6 @@ int kvs_connect(const char* req_pipe_path, char const* resp_pipe_path, char cons
   }
 
   // Get the client id
-
-
   return 0;
 }
  
@@ -93,12 +90,12 @@ int kvs_disconnect(char const* req_pipe_path, char const* resp_pipe_path, char c
 
   int intr = 0;
 
-  if (write_all(fd_req_pipe, buffer, sizeof(buffer)) == -1) {
+  if (write_all(fd_req_pipe, buffer, sizeof(char)*1) == -1) {
     fprintf(stderr, "Failed to write to request FIFO\n");
     return -1;
   }
 
-  if (read_all(fd_resp_pipe, buffer, sizeof(char)*3, &intr) == -1) {
+  if (read_all(fd_resp_pipe, buffer, MAX_KEY_SIZE, &intr) == -1) {
     if (intr){
       fprintf(stderr, "Reading from response FIFO was interrupted\n");  
 

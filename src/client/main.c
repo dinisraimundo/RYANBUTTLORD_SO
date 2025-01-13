@@ -65,8 +65,45 @@ int main(int argc, char* argv[]) {
   req_pipe_path[strlen(req_pipe_path)] = '\0';
   resp_pipe_path[strlen(resp_pipe_path)] = '\0';
   notif_pipe_path[strlen(notif_pipe_path)] = '\0';
+  int connection = kvs_connect(req_pipe_path, resp_pipe_path, register_pipe_path, notif_pipe_path, &notif_fifo, &req_fifo, &resp_fifo);
+  
+  if(connection < 0){
+    if(connection == -1){
+      // Close the notification fifo
+      if (close(notif_fifo) == -1){
+        fprintf(stderr, "Failed to close notification fifo\n");
+        return 1;
+      }
+      
+      // Close the request fifo
+      if (close(req_fifo) == -1){
+        fprintf(stderr, "Failed to close request fifo\n");
+        return 1;
+      }
 
-  kvs_connect(req_pipe_path, resp_pipe_path, register_pipe_path, notif_pipe_path, &notif_fifo, &req_fifo, &resp_fifo);
+      // Close the response fifo
+      if (close(resp_fifo) == -1){
+        fprintf(stderr, "Failed to close response fifo\n");
+        return 1;
+      }
+
+      if (unlink(req_pipe_path) == -1) {
+          fprintf(stderr, "Failed to unlink FIFO");
+      }
+      if (unlink(resp_pipe_path) == -1) {
+          fprintf(stderr, "Failed to unlink FIFO");
+      }
+      if (unlink(notif_pipe_path) == -1) {
+          fprintf(stderr, "Failed to unlink FIFO");
+      }
+    }
+  
+    printf("Server returned 1 for operation: connect\n");
+    return 1;
+  }
+  else{
+    printf("Server returned 0 for operation: connect\n");
+  }
 
   if (pthread_create(&thread_id, NULL, reads_notifs, (void*)&notif_fifo) != 0) {
     fprintf(stderr, "Failed to create thread");

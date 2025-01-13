@@ -201,11 +201,10 @@ void handle_client_commands(Client * client){
   int result;
   int intr = 0;
 
-  memset(buffer, '\0', MAX_KEY_SIZE);
-
   while (1){
-    
-    if (read_all(client->request_fd, op, 1, &intr) == -1) {
+    memset(buffer, '\0', MAX_KEY_SIZE);
+
+    if (read_all(client->request_fd, op, sizeof(char)*1, &intr) == -1) {
       if (intr){
         fprintf(stderr, "Reading from request FIFO was interrupted\n");
       } else {
@@ -220,6 +219,7 @@ void handle_client_commands(Client * client){
       case OP_CODE_CONNECT:
         printf("Invalid operation\n");
         break;
+        
       case OP_CODE_DISCONNECT:
         printf("entrou disconnect\n");
         result = disconnect(client);
@@ -228,17 +228,17 @@ void handle_client_commands(Client * client){
         }
         snprintf(buffer, MAX_KEY_SIZE, "%s%d", op, result);
         printf("before write all\n");
-        printf("key = %s", client->id);
-        printf("response fd = %d", client->response_fd);
+        printf("key = %s\n", client->id);
+        printf("response fd = %d\n", client->response_fd);
         if (write_all(client->response_fd, buffer, MAX_KEY_SIZE) == -1) {
           fprintf(stderr, "Failed to write to the response FIFO\n");
           return;
         }
-        printf("after write all before close req");
+        printf("after write all before close req\n");
         if (close(client->request_fd) == -1){
           fprintf(stderr, "Failed to close fifo\n");
         }
-        printf("2");
+        
         if (close(client->response_fd) == -1){
           fprintf(stderr, "Failed to close fifo\n");
         }
@@ -246,13 +246,13 @@ void handle_client_commands(Client * client){
         if (close(client->notification_fd) == -1){
           fprintf(stderr, "Failed to close fifo\n");
         }
-        printf("before disconnect");
+        printf("before disconnect\n");
         pthread_mutex_lock(&buffer_mutex);
         shared_buffer.clients[shared_buffer.out] = NULL;
         shared_buffer.out = (shared_buffer.out + 1) % MAX_SESSION_COUNT;
         sem_post(&sem_empty);
         pthread_mutex_unlock(&buffer_mutex);
-
+        printf("after disconnect\n");
         return;
         break;
 
