@@ -4,6 +4,8 @@
 
 #include <stddef.h>
 #include <pthread.h>
+#include "src/common/constants.h"
+
 
 typedef struct Subscribers{
     char *sub_clients;
@@ -41,6 +43,11 @@ typedef struct HashTable {
     pthread_rwlock_t tablelock;
 } HashTable;
 
+typedef struct {
+    Client* clients[MAX_SESSION_COUNT];
+    int in; // Buffer insertion index
+    int out; // Buffer extraction index
+} Buffer;
 
 /// Creates a new KVS hash table.
 /// @return Newly created hash table, NULL on failure

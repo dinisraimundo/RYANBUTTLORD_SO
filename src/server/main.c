@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <stdio.h>
 #include <errno.h>
+#include <semaphore.h>
 
 #include "kvs.h"
 #include "constants.h"
@@ -36,8 +37,20 @@ char register_fifo_name[MAX_PIPE_PATH_LENGTH] = "/tmp/";     // Register FIFO na
 char* jobs_directory = NULL;        // Jobs directory                                             //
 Client *clients;                   // Array of clients                                           //
 int session_count = 0;            // Number of active sessions                                  //
-pthread_t client_threads[MAX_SESSION_COUNT];
 
+// New stuff
+Buffer shared_buffer = {.in = 0, .out = 0}; // Data structure buffer that host sends to a client 
+sem_t sem_empty; // Tracks empty slots in the buffer
+sem_t sem_count; // Tracks filled slots in the buffer
+pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER; // Mutex for buffer operations
+int buffer_index = 0; // Helps tracking
+
+
+void initialize_buffer() {
+    sem_init(&sem_empty, 0, MAX_SESSION_COUNT);  // Buffer starts empty
+    sem_init(&sem_count, 0, 0);            // No sessions to process initially
+    pthread_mutex_init(&buffer_mutex, NULL); // Mutex for buffer access
+}
 
 int filter_job_files(const struct dirent* entry) {
     const char* dot = strrchr(entry->d_name, '.');
@@ -175,9 +188,8 @@ static int run_job(int in_fd, int out_fd, char* filename) {
   }
 }
 
-void* run_client(void *args){
+void handle_client_commands(Client * client){
 
-  Client* client = (Client*) args;
   client->active = 1;
   // Mudar os argumentos para void* args e depois fazer casting para conseguilos 
   // Passei cliente porque era uma estrutura que nos ja temos feito e da jeito por isso ta gg
@@ -199,29 +211,34 @@ void* run_client(void *args){
       } else {
         fprintf(stderr, "Failed to read from the request FIFO\n");
       }
-      return NULL;
+      return;
     }
     op[1] = '\0';
 
 
     switch(atoi(op)){
       case OP_CODE_CONNECT:
+        printf("Invalid operation\n");
+        break;
       case OP_CODE_DISCONNECT:
-
+        printf("entrou disconnect\n");
         result = disconnect(client);
         if(result == 1){
           fprintf(stderr, "Failed to disconnect client\n");
         }
         snprintf(buffer, MAX_KEY_SIZE, "%s%d", op, result);
-
+        printf("before write all\n");
+        printf("key = %s", client->id);
+        printf("response fd = %d", client->response_fd);
         if (write_all(client->response_fd, buffer, MAX_KEY_SIZE) == -1) {
           fprintf(stderr, "Failed to write to the response FIFO\n");
-          return NULL;
+          return;
         }
+        printf("after write all before close req");
         if (close(client->request_fd) == -1){
           fprintf(stderr, "Failed to close fifo\n");
         }
-
+        printf("2");
         if (close(client->response_fd) == -1){
           fprintf(stderr, "Failed to close fifo\n");
         }
@@ -229,7 +246,14 @@ void* run_client(void *args){
         if (close(client->notification_fd) == -1){
           fprintf(stderr, "Failed to close fifo\n");
         }
-        return NULL;
+        printf("before disconnect");
+        pthread_mutex_lock(&buffer_mutex);
+        shared_buffer.clients[shared_buffer.out] = NULL;
+        shared_buffer.out = (shared_buffer.out + 1) % MAX_SESSION_COUNT;
+        sem_post(&sem_empty);
+        pthread_mutex_unlock(&buffer_mutex);
+
+        return;
         break;
 
       case OP_CODE_SUBSCRIBE:
@@ -259,7 +283,7 @@ void* run_client(void *args){
           } else {
             fprintf(stderr, "Failed to read from the request FIFO\n");
           }
-          return NULL;
+          return;
         }
         result = unsubscribe(buffer, client->id, client->response_fd);
 
@@ -271,8 +295,46 @@ void* run_client(void *args){
         break;
     }
   }
-  return NULL;
+  return;
 }
+
+
+// NULL arguments
+void* run_client(void *args){
+
+  if (args != NULL){
+    fprintf(stderr, "Invalid arguments\n");
+    return NULL;
+  }
+
+   while (1) {
+      sem_wait(&sem_count);  // Wait until there's a client to process
+      pthread_mutex_lock(&buffer_mutex);
+
+      // Find a client in the buffer to process
+      if (buffer_index > 0) {
+          Client* current_client = shared_buffer.clients[0];  // Take the first client in the buffer
+
+          // Shift remaining clients in the buffer
+          for (int i = 0; i < buffer_index - 1; i++) {
+              shared_buffer.clients[i] = shared_buffer.clients[i + 1];
+          }
+          buffer_index--;  // Decrement the buffer index
+
+          pthread_mutex_unlock(&buffer_mutex);
+          sem_post(&sem_empty);  // Signal that there is now an empty slot in the buffer
+
+          // Process the client's request (this could be handling commands or something else)
+          handle_client_commands(current_client);
+
+          // Free the client memory after processing
+          free(current_client);
+      } else {
+          pthread_mutex_unlock(&buffer_mutex);
+      }
+    }
+}
+
 
 //frees arguments
 static void* get_file(void* arguments) {
@@ -347,6 +409,7 @@ static void* get_file(void* arguments) {
 */
 void* get_register(void* arg){
 
+  initialize_buffer();
   int intr = 0;
 
   if (arg != NULL){
@@ -425,11 +488,19 @@ void* get_register(void* arg){
 
     add_client(&clients, client);
 
-    // CHANGEME para fazer com mais clientes: criar uma lista em cima antes do while probably com max session count e gg
-    pthread_t client_thread;
-    // Create thread for client
-    
-    pthread_create(&client_thread, NULL, run_client, (void*)client);
+    sem_wait(&sem_empty);  // Wait for an empty slot in the buffer
+    pthread_mutex_lock(&buffer_mutex);
+
+    // Add client to the buffer
+    if (buffer_index < MAX_SESSION_COUNT) {
+        shared_buffer.clients[buffer_index++] = client;
+    } else {
+        fprintf(stderr, "Buffer is full\n");
+    }
+
+    pthread_mutex_unlock(&buffer_mutex);
+    sem_post(&sem_count); // Client is ready
+
     close(fd);
   }
 
@@ -439,6 +510,7 @@ void* get_register(void* arg){
 static void dispatch_threads(DIR* dir) {
   pthread_t* threads = malloc(max_threads * sizeof(pthread_t));
   pthread_t host_thread; // Tarefa Anfitriã
+  pthread_t client_threads[MAX_SESSION_COUNT];
 
   if (threads == NULL) {
     fprintf(stderr, "Failed to allocate memory for threads\n");
@@ -455,6 +527,14 @@ static void dispatch_threads(DIR* dir) {
       return; 
   }
 
+  for (size_t i = 0; i < MAX_SESSION_COUNT; i++){
+    if (pthread_create(&client_threads[i], NULL, run_client, NULL)) {
+        fprintf(stderr, "Failed to create client thread %zu\n", i);
+        pthread_mutex_destroy(&thread_data.directory_mutex);
+        return;
+    }
+  }
+
   for (size_t i = 0; i < max_threads; i++) {
     if (pthread_create(&threads[i], NULL, get_file, (void*)&thread_data) != 0) {
       fprintf(stderr, "Failed to create thread %zu\n", i);
@@ -464,7 +544,7 @@ static void dispatch_threads(DIR* dir) {
     }
   }
 
-  // ler do FIFO de registo
+
 
   for (unsigned int i = 0; i < max_threads; i++) {
     if (pthread_join(threads[i], NULL) != 0) {
