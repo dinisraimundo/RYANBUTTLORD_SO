@@ -246,9 +246,7 @@ int subscribe(const char * key, const char * client_id, int fd_resp_pipe, int fd
 int unsubscribe(const char * key, const char * client_id, int fd_resp_pipe){
   //print_everything_at_key(key, kvs_table);
   int op_code = 4;
-  printf("Entering unsub_key\n");
   int value = unsub_key(kvs_table, key, client_id);
-  printf("Leaving unsub_key\n");
   char buffer[3];
   memset(buffer, '\0', sizeof(buffer));
   snprintf(buffer, sizeof(buffer), "%d%d", op_code, value);

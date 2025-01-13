@@ -38,7 +38,8 @@ int write_pair(HashTable *ht, const char *key, const char *value) {
     char value_buffer[MAX_KEY_SIZE];
     memset(key_buffer, '\0', MAX_STRING_SIZE);
     memset(value_buffer, '\0', MAX_STRING_SIZE);
-
+    
+    // CHANGEME quando fazemos isto temos que tambem percorrer os clientes a procura de novas chaves a serem adicionadas
     // Search for the key node
 	KeyNode *keyNode = ht->table[index];
     Subscribers *subNode;
@@ -257,7 +258,7 @@ int sub_key(HashTable *ht, const char * key, const char * client_id, int fd_noti
         keyNode = previousNode->next;
     }
     
-    return 0;
+    return 1;
 }
 
 // Ponto disto é: Ir ao index da hashtable e encontrar a subscricao do cliente dentro dos subscribers e apagar
@@ -337,7 +338,6 @@ int apagar_subscricao(Chaves_subscritas *sub_keys, const char* key){
     keyNode = sub_keys;
 
     while(keyNode != NULL){
-        printf("chave subscrita : %s\n", keyNode->key);
         if(strcmp(keyNode->key, key) == 0){
             keyNode->active = 0;
             return 0;

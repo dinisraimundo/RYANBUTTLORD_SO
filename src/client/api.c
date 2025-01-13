@@ -47,7 +47,6 @@ int kvs_connect(const char* req_pipe_path, char const* resp_pipe_path, char cons
   char* client_id = (char*)req_pipe_path + 8;
   
   // Send the Op-code, client id and each fifos fd to the server
-  // CHANGEME - Change the buffer size
   char buffer[BUFFER_SIZE];
   memset(buffer, '\0', BUFFER_SIZE);
   sprintf(buffer, "0 %s %s %s %s", req_pipe_path, resp_pipe_path, notif_pipe_path, client_id);
@@ -122,7 +121,6 @@ int kvs_disconnect(char const* req_pipe_path, char const* resp_pipe_path, char c
   op_code = atoi(op_code_str);
   result = atoi(result_str);
 
-  // CHANGEME - que isto
   if (op_code != 2){
     fprintf(stderr, "Op_code errado no kvs_subscribe\n");
   }

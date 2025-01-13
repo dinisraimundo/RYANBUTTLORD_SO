@@ -34,8 +34,10 @@ size_t max_backups;                // Maximum allowed simultaneous backups      
 size_t max_threads;               // Maximum allowed simultaneous threads                         //
 char register_fifo_name[MAX_PIPE_PATH_LENGTH] = "/tmp/";     // Register FIFO name               //
 char* jobs_directory = NULL;        // Jobs directory                                             //
-Client *clients; // Array of clients                                           //
+Client *clients;                   // Array of clients                                           //
 int session_count = 0;            // Number of active sessions                                  //
+pthread_t client_threads[MAX_SESSION_COUNT];
+
 
 int filter_job_files(const struct dirent* entry) {
     const char* dot = strrchr(entry->d_name, '.');
@@ -263,7 +265,7 @@ void* run_client(void *args){
 
         if (result == 0){
           if (apagar_subscricao(client->sub_keys, buffer) == 1){
-            fprintf(stderr, "Failed to delete subscription\n");
+            fprintf(stderr, "Client isn't subscripted to this key\n");
           }
         }
         break;
