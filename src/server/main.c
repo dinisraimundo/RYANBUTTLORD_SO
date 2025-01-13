@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <semaphore.h>
+#include <signal.h>
 
 #include "kvs.h"
 #include "constants.h"
@@ -30,19 +31,28 @@ struct SharedData {
 pthread_mutex_t register_clients_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t n_current_backups_lock = PTHREAD_MUTEX_INITIALIZER;
 
-size_t active_backups = 0;          // Number of active backups                                   //
-size_t max_backups;                // Maximum allowed simultaneous backups                       //
-size_t max_threads;               // Maximum allowed simultaneous threads                         //
-char register_fifo_name[MAX_PIPE_PATH_LENGTH] = "/tmp/";     // Register FIFO name               //
-char* jobs_directory = NULL;        // Jobs directory                                             //
-Client *clients;                   // Array of clients                                           //
+size_t active_backups = 0;          // Number of active backups 
+size_t max_backups;                // Maximum allowed simultaneous backups
+size_t max_threads;               // Maximum allowed simultaneous threads  
+char register_fifo_name[MAX_PIPE_PATH_LENGTH] = "/tmp/";     // Register FIFO name
+char* jobs_directory = NULL;        // Jobs directory                      
+Client *clients;                   // Array of clients                    
+int session_count = 0;            // Number of active sessions           
 
 // New stuff
 Buffer shared_buffer = {.consptr = 0, .prodptr = 0}; // Data structure buffer that host sends to a client 
 sem_t semPodeProd; // Tracks empty slots in the buffer
 sem_t semPodeCons; // Tracks filled slots in the buffer
 pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER; // Mutex for buffer operations
+int buffer_index = 0; // Helps tracking
 
+
+void sigusr1_handler(int signo) {
+    if (signo == SIGUSR1) {
+      delete_subscriptions(clients);
+      session_count = 0;
+    }
+}
 
 void initialize_buffer() {
     sem_init(&semPodeProd, 0, MAX_SESSION_COUNT);  // Buffer starts empty
@@ -84,6 +94,7 @@ static int entry_files(const char* dir, struct dirent* entry, char* in_path, cha
 
 static int run_job(int in_fd, int out_fd, char* filename) {
   size_t file_backups = 0;
+
   while (1) {
     char keys[MAX_WRITE_SIZE][MAX_STRING_SIZE] = {0};
     char values[MAX_WRITE_SIZE][MAX_STRING_SIZE] = {0};
@@ -358,9 +369,19 @@ void* run_client(void* args) {
         fprintf(stderr, "Invalid arguments passed to thread.\n");
         return NULL;
     }
-    while (1) {
-        sem_wait(&semPodeCons);  // Wait until a client is available
-        pthread_mutex_lock(&buffer_mutex);
+
+  sigset_t sigset;
+
+  sigemptyset(&sigset);
+  sigaddset(&sigset, SIGUSR1);
+
+  if (pthread_sigmask(SIG_BLOCK, &sigset, NULL) != 0) {
+      fprintf(stderr, "Error blocking the SIGUSR1 signal\n");
+      pthread_exit(NULL);
+  }
+   while (1) {
+      sem_wait(&semPodeCons);  // Wait until a client is available
+      pthread_mutex_lock(&buffer_mutex);
 
         // Access the client at the `out` index
         Client* current_client = shared_buffer.clients[shared_buffer.consptr];
@@ -381,9 +402,15 @@ void* run_client(void* args) {
 
         // Process the client outside the critical section
         handle_client_commands(current_client);
+        // Process the client's request (this could be handling commands or something else)
+        handle_client_commands(current_client);
 
         // Free the client memory after processing
         free(current_client);
+    }
+    if (pthread_sigmask(SIG_UNBLOCK, &sigset, NULL) != 0) {
+      fprintf(stderr, "Error blocking the SIGUSR1 signal\n");
+      pthread_exit(NULL);
     }
 }
 
@@ -395,6 +422,15 @@ static void* get_file(void* arguments) {
   struct SharedData* thread_data = (struct SharedData*) arguments;
   DIR* dir = thread_data->dir;
   char* dir_name = thread_data->dir_name;
+  sigset_t sigset;
+
+  sigemptyset(&sigset);
+  sigaddset(&sigset, SIGUSR1);
+
+  if (pthread_sigmask(SIG_BLOCK, &sigset, NULL) != 0) {
+      fprintf(stderr, "Error blocking the SIGUSR1 signal\n");
+      pthread_exit(NULL);
+  }
 
   if (pthread_mutex_lock(&thread_data->directory_mutex) != 0) {
     fprintf(stderr, "Thread failed to lock directory_mutex\n");
@@ -454,6 +490,11 @@ static void* get_file(void* arguments) {
     return NULL;
   }
 
+  if (pthread_sigmask(SIG_UNBLOCK, &sigset, NULL) != 0) {
+    fprintf(stderr, "Error blocking the SIGUSR1 signal\n");
+    pthread_exit(NULL);
+  }
+
   pthread_exit(NULL);
 }
 
@@ -473,6 +514,16 @@ void* get_register(void* arg){
     return NULL;
   }
   char buffer[BUFFER_SIZE];
+  sigset_t sigset;
+
+  sigemptyset(&sigset);
+  sigaddset(&sigset, SIGUSR1);
+
+  if (pthread_sigmask(SIG_BLOCK, &sigset, NULL) != 0) {
+      fprintf(stderr, "Error blocking the SIGUSR1 signal\n");
+      pthread_exit(NULL);
+  }
+
   if (mkfifo(register_fifo_name, 0666) == -1 && errno != EEXIST){
       fprintf(stderr, "Failed to create fifo\n");
       return NULL;
@@ -481,7 +532,7 @@ void* get_register(void* arg){
   while (1){
     int fd = open(register_fifo_name, O_RDONLY);
     if (fd == -1){
-      fprintf(stderr, "Failed to open fifo\n");
+      fprintf(stderr, "Failed to open register fifo\n");
       return NULL;
     }
     Client* client = (Client*)malloc(sizeof(Client));
@@ -510,7 +561,7 @@ void* get_register(void* arg){
 
     int fd_req_pipe = open(token, O_RDONLY);
     if (fd_req_pipe == -1){
-      fprintf(stderr, "Failed to open fifo\n");
+      fprintf(stderr, "Failed to open request fifo\n");
       return NULL;
     }
     client->request_fd = fd_req_pipe;
@@ -519,7 +570,7 @@ void* get_register(void* arg){
 
     int fd_resp_pipe = open(token, O_WRONLY);
     if (fd_resp_pipe == -1){
-      fprintf(stderr, "Failed to open fifo\n");
+      fprintf(stderr, "Failed to open response fifo\n");
       close(fd_req_pipe);
       return NULL;
     }
@@ -530,7 +581,7 @@ void* get_register(void* arg){
    
     int fd_notif_pipe = open(token, O_WRONLY);
     if (fd_notif_pipe == -1){
-      fprintf(stderr, "Failed to open fifo\n");
+      fprintf(stderr, "Failed to open notifications fifo\n");
       close(fd_req_pipe);
       close(fd_resp_pipe);
       return NULL;
@@ -558,6 +609,11 @@ void* get_register(void* arg){
     sem_post(&semPodeCons); // Client is ready 
 
     close(fd);
+    
+    if (pthread_sigmask(SIG_UNBLOCK, &sigset, NULL) != 0) {
+      fprintf(stderr, "Error blocking the SIGUSR1 signal\n");
+      pthread_exit(NULL);
+    }
   }
 
   return NULL;
@@ -626,6 +682,7 @@ static void dispatch_threads(DIR* dir) {
 
 
 int main(int argc, char** argv) {
+  
   if (argc < 4) {
     write_str(STDERR_FILENO, "Usage: ");
     write_str(STDERR_FILENO, argv[0]);
@@ -634,8 +691,12 @@ int main(int argc, char** argv) {
 		write_str(STDERR_FILENO, " <max_backups> \n");
     return 1;
   }
-
+  
   clients = malloc(MAX_SESSION_COUNT * sizeof(Client));
+  struct sigaction sa;
+  sa.sa_handler = &sigusr1_handler;
+  sigaction(SIGUSR1, &sa, NULL);
+  //signal(SIGUSR1, &sigusr1_handler);
 
   jobs_directory = argv[1];
   strcat(register_fifo_name, argv[4]);

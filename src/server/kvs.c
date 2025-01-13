@@ -365,3 +365,21 @@ int remove_subs(HashTable *ht, const char *client_id, const char *key){
 
     return 1;
 }
+
+int remove_todas(HashTable *ht){
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        KeyNode *keyNode = ht->table[i];
+        Subscribers *subNode;
+
+        while (keyNode != NULL) {
+            subNode = keyNode->subs;
+
+            while(subNode != NULL){
+                subNode->ativo = 0;
+                subNode = subNode->next;
+            }
+            keyNode = keyNode->next;
+        }
+    }
+    return 0;
+}

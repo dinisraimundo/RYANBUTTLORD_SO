@@ -84,5 +84,6 @@ int unsub_key(HashTable *ht, const char * key, const char * client_id);
 int iniciar_subscricao(Client *client, const char* key);
 int apagar_subscricao(Chaves_subscritas *sub_keys, const char* key);
 int remove_subs(HashTable *ht, const char *client_id, const char *key);
+int remove_todas(HashTable *ht);
 
 #endif  // KVS_H

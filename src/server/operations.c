@@ -275,3 +275,20 @@ int disconnect(Client *client){
   client->active = 0;
   return 0;
 }
+
+int delete_subscriptions(Client *client){
+  Chaves_subscritas *keyNode;
+
+  while(client != NULL){
+    client->active = 0;
+    keyNode = client->sub_keys;
+    while (keyNode != NULL){
+      keyNode->active = 0;
+      keyNode = keyNode->next;
+    }
+    client = client->next;
+  }
+
+  remove_todas(kvs_table);
+  return 0;
+}
